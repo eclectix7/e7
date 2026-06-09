@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<!-- saved from url=(0060)file:///home/todd/e7/kaizen/agentic-harness-interactive.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Harness — Interactive Architecture</title>
+  <link href="./Agentic Harness — Interactive Architecture0_files/css2" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      height: 100vh;
+      overflow: hidden;
+      color: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 20px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .pulse-dot {
+      width: 10px; height: 10px; background: #22d3ee;
+      border-radius: 50%; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .topbar h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+    .topbar .subtitle { color: #64748b; font-size: 0.75rem; }
+
+    .topbar-actions { display: flex; gap: 8px; }
+    .topbar-actions button {
+      background: rgba(30,41,59,0.6); border: 1px solid #334155;
+      color: #94a3b8; padding: 5px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 0.75rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .topbar-actions button:hover { background: #334155; color: #e2e8f0; }
+    .topbar-actions button.primary { background: rgba(34,211,238,0.15); border-color: #22d3ee; color: #22d3ee; }
+    .topbar-actions button.primary:hover { background: rgba(34,211,238,0.25); }
+
+    /* ── Main Layout ── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Canvas ── */
+    .canvas-wrapper {
+      flex: 1; position: relative; overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(30,41,59,0.15) 0%, transparent 70%);
+    }
+    .canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3000px; height: 2000px;
+      background-image:
+        linear-gradient(rgba(30,41,59,0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30,41,59,0.3) 1px, transparent 1px);
+      background-size: 40px 40px;
+      cursor: grab;
+    }
+    .canvas.dragging { cursor: grabbing; }
+
+    /* ── SVG Connections ── */
+    .connections-svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 1;
+    }
+    .connections-svg path {
+      fill: none; stroke-width: 1.8;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+    .connections-svg path:hover { stroke-width: 3.5; }
+
+    /* ── Nodes ── */
+    .node {
+      position: absolute; z-index: 10;
+      min-width: 130px; max-width: 260px;
+      background: rgba(15,23,42,0.92);
+      border: 1.5px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: move;
+      user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .node:hover { border-color: #64748b; box-shadow: 0 0 20px rgba(0,0,0,0.4); }
+    .node.selected { border-color: #22d3ee; box-shadow: 0 0 16px rgba(34,211,238,0.2); }
+    .node.dragging { opacity: 0.85; z-index: 100; }
+    .node-title {
+      font-size: 0.82rem; font-weight: 700; margin-bottom: 3px;
+      cursor: text; padding: 2px 4px; border-radius: 3px;
+      display: inline-block;
+    }
+    .node-title:hover { background: rgba(255,255,255,0.05); }
+    .node-title[contenteditable="true"] { outline: 1px dashed #64748b; background: rgba(255,255,255,0.05); }
+    .node-sub { font-size: 0.68rem; color: #64748b; line-height: 1.45; }
+    .node-sub span { cursor: text; padding: 1px 3px; border-radius: 2px; }
+    .node-sub span:hover { background: rgba(255,255,255,0.05); }
+    .node-tag {
+      display: inline-block; font-size: 0.6rem; padding: 1px 5px;
+      border-radius: 3px; margin-top: 4px; font-weight: 500;
+    }
+    .node-zone-badge {
+      position: absolute; top: -9px; left: 8px;
+      font-size: 0.55rem; padding: 1px 6px;
+      border-radius: 3px; font-weight: 600;
+      background: #0f172a; border: 1px solid #334155;
+    }
+    .node .resize-handle {
+      position: absolute; bottom: 0; right: 0;
+      width: 14px; height: 14px; cursor: nwse-resize;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .node:hover .resize-handle { opacity: 0.6; }
+
+    /* Color themes */
+    .c-frontend  { border-left: 3px solid #22d3ee; }
+    .c-frontend .node-title { color: #22d3ee; }
+    .c-frontend .node-tag  { background: rgba(34,211,238,0.15); color: #22d3ee; }
+    .c-backend   { border-left: 3px solid #34d399; }
+    .c-backend .node-title { color: #34d399; }
+    .c-backend .node-tag  { background: rgba(52,211,153,0.15); color: #34d399; }
+    .c-database  { border-left: 3px solid #a78bfa; }
+    .c-database .node-title { color: #a78bfa; }
+    .c-database .node-tag  { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .c-cloud     { border-left: 3px solid #fbbf24; }
+    .c-cloud .node-title { color: #fbbf24; }
+    .c-cloud .node-tag  { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .c-security  { border-left: 3px solid #fb7185; }
+    .c-security .node-title { color: #fb7185; }
+    .c-security .node-tag  { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .c-bus       { border-left: 3px solid #fb923c; }
+    .c-bus .node-title { color: #fb923c; }
+    .c-bus .node-tag  { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .c-external  { border-left: 3px solid #94a3b8; }
+    .c-external .node-title { color: #94a3b8; }
+    .c-external .node-tag  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 320px; flex-shrink: 0;
+      background: #0f172a;
+      border-left: 1px solid #1e293b;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      z-index: 50;
+    }
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
+    }
+    .sidebar-tab {
+      flex: 1; padding: 10px; text-align: center;
+      font-size: 0.75rem; font-weight: 600;
+      color: #64748b; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-tab:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
+    .sidebar-tab.active { color: #22d3ee; border-bottom-color: #22d3ee; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+    .sidebar-section { margin-bottom: 16px; }
+    .sidebar-section h3 {
+      font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #475569;
+      margin-bottom: 8px;
+    }
+
+    /* Comments */
+    .comment-item {
+      background: rgba(30,41,59,0.4);
+      border-radius: 6px; padding: 8px 10px;
+      margin-bottom: 6px; border-left: 2px solid #334155;
+    }
+    .comment-item .comment-author {
+      font-size: 0.68rem; color: #64748b; margin-bottom: 3px;
+    }
+    .comment-item .comment-text {
+      font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;
+    }
+    .comment-item .comment-time {
+      font-size: 0.6rem; color: #475569; margin-top: 3px;
+    }
+    .comment-form { display: flex; gap: 6px; margin-top: 8px; }
+    .comment-form textarea {
+      flex: 1; background: rgba(15,23,42,0.8);
+      border: 1px solid #334155; border-radius: 6px;
+      color: #e2e8f0; padding: 8px; font-family: inherit;
+      font-size: 0.75rem; resize: none; height: 60px;
+    }
+    .comment-form textarea:focus { outline: none; border-color: #22d3ee; }
+    .comment-form button {
+      background: rgba(34,211,238,0.15); border: 1px solid #22d3ee;
+      color: #22d3ee; padding: 6px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 0.72rem; cursor: pointer;
+    }
+
+    /* New connection mode */
+    .connection-mode {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.95); border: 1px solid #fbbf24;
+      border-radius: 8px; padding: 6px 14px;
+      font-size: 0.75rem; color: #fbbf24; z-index: 200;
+      display: none; pointer-events: none;
+    }
+    .connection-mode.active { display: block; }
+
+    /* Mini map */
+    .minimap {
+      position: absolute; bottom: 12px; right: 12px;
+      width: 180px; height: 120px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid #334155; border-radius: 8px;
+      overflow: hidden; z-index: 50;
+    }
+    .minimap canvas { width: 100%; height: 100%; }
+    .minimap-viewport {
+      position: absolute; border: 1px solid rgba(34,211,238,0.5);
+      background: rgba(34,211,238,0.05);
+      border-radius: 2px;
+    }
+
+    /* ── Properties Panel ── */
+    .props-panel { display: none; }
+    .props-panel.visible { display: block; }
+    .props-row {
+      display: flex; justify-content: space-between;
+      padding: 4px 0; font-size: 0.72rem;
+      border-bottom: 1px solid rgba(30,41,59,0.5);
+    }
+    .props-row .label { color: #64748b; }
+    .props-row .value { color: #cbd5e1; }
+    .props-row input {
+      background: rgba(15,23,42,0.8); border: 1px solid #334155;
+      color: #e2e8f0; padding: 3px 6px; border-radius: 4px;
+      font-family: inherit; font-size: 0.72rem; width: 120px;
+    }
+    .props-row input:focus { outline: none; border-color: #22d3ee; }
+
+    /* Tooltip */
+    .tooltip {
+      position: fixed; background: rgba(15,23,42,0.95);
+      border: 1px solid #334155; border-radius: 6px;
+      padding: 6px 10px; font-size: 0.7rem;
+      color: #94a3b8; pointer-events: none;
+      max-width: 200px; z-index: 1000;
+      display: none;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="pulse-dot"></div>
+    <div>
+      <h1>Agentic Harness — Interactive Architecture</h1>
+      <div class="subtitle">Drag nodes · Edit text · Add comments · Auto-saves to localStorage</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button onclick="addNode()" title="Add new node">+ Node</button>
+    <button onclick="addConnection()" title="Draw connection between nodes">⊕ Connection</button>
+    <button onclick="addComment()" title="Add a comment">💬 Comment</button>
+    <button onclick="exportDiagram()" title="Export as JSON">📥 Export</button>
+    <button onclick="importDiagram()" title="Import from JSON">📤 Import</button>
+    <button class="primary" onclick="resetView()" title="Reset view">↺ Reset</button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <svg class="connections-svg" id="connectionsSvg"><defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#64748b"></polygon></marker><marker id="arrowhead-highlight" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#22d3ee"></polygon></marker><marker id="arrowhead-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#fbbf24"></polygon></marker></defs><path d="M 729.9921875 -1282.234375 Q 676.1572574959181 -1207.67578125 684.6640625 -1133.1171875" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="0"></path><text x="676.1572574959181" y="-1207.67578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">raw input</text><path d="M 684.6640625 -1133.1171875 Q 853.33203125 -1267.67578125 1022 -1282.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="1"></path><text x="853.33203125" y="-1267.67578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">context</text><path d="M 1022 -1282.234375 Q 1195.73046875 -1220.234375 1369.4609375 -1278.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="2"></path><text x="1195.73046875" y="-1220.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">state</text><path d="M 1369.4609375 -1278.234375 Q 1523.98828125 -1340.234375 1678.515625 -1282.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="3"></path><text x="1523.98828125" y="-1340.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">prefs</text><path d="M 1678.515625 -1282.234375 Q 1761.1443801254513 -1200.234375 1768.875 -1118.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="4"></path><text x="1761.1443801254513" y="-1200.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">store</text><path d="M 1369.4609375 -1278.234375 Q 1022.16796875 -1049.734375 674.875 -941.234375" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowhead-dashed)" data-idx="5"></path><text x="1022.16796875" y="-1054.734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">returning</text><text x="1022.16796875" y="-1043.734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">(shortcut)</text><path d="M 684.6640625 -1133.1171875 Q 641.3430614784797 -1037.17578125 674.875 -941.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="6"></path><text x="641.3430614784797" y="-1037.17578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">normalized</text><path d="M 1022 -1282.234375 Q 1140.5 -1140.2055729629928 1259 -1114.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="7"></path><text x="1140.5" y="-1140.2055729629928" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">session ctx</text><path d="M 1768.875 -1118.234375 Q 1513.9375 -1056.29296875 1259 -1114.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="8"></path><text x="1513.9375" y="-1056.29296875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">user profile</text><path d="M 674.875 -941.234375 Q 1252.3515625 -818.234375 1829.828125 -815.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="9"></path><text x="1252.3515625" y="-818.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">intent</text><path d="M 674.875 -941.234375 Q 833.0078125 -1012.734375 991.140625 -964.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="10"></path><text x="833.0078125" y="-1012.734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">entities</text><path d="M 991.140625 -964.234375 Q 1125.0703125 -1099.29296875 1259 -1114.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="11"></path><path d="M 1259 -1114.3515625 Q 1417.7777989119675 -1004.52734375 1458 -894.703125" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="12"></path><text x="1417.7777989119675" y="-1004.52734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">rich ctx</text><path d="M 1458 -894.703125 Q 1643.9140625 -794.96875 1829.828125 -815.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="13"></path><text x="1643.9140625" y="-794.96875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">reasoned intent</text><path d="M 674.875 -941.234375 Q 717.7438899926968 -853.29296875 690 -765.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="14"></path><text x="717.7438899926968" y="-853.29296875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">needs</text><path d="M 1829.828125 -815.234375 Q 1427.9140625 -743.79296875 1026 -792.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="15"></path><text x="1427.9140625" y="-743.79296875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">clarify?</text><path d="M 690 -765.3515625 Q 858 -838.8515625 1026 -792.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="16"></path><text x="858" y="-838.8515625" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">refine</text><path d="M 1026 -792.3515625 Q 1124.46484375 -707.464472137694 1222.9296875 -708.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="17"></path><text x="1124.46484375" y="-707.464472137694" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">confirmed</text><path d="M 690 -765.3515625 Q 650.9943220771097 -695.734375 668.3515625 -626.1171875" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="18"></path><text x="650.9943220771097" y="-695.734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">query</text><path d="M 1222.9296875 -708.234375 Q 945.640625 -607.17578125 668.3515625 -626.1171875" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="19"></path><text x="945.640625" y="-607.17578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">pref query</text><path d="M 668.3515625 -626.1171875 Q 813.140625 -694.7451969820102 957.9296875 -647.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="20"></path><text x="813.140625" y="-694.7451969820102" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">vec query</text><path d="M 668.3515625 -626.1171875 Q 914.17578125 -692.734375 1160 -639.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="21"></path><text x="914.17578125" y="-692.734375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">web lookup</text><path d="M 668.3515625 -626.1171875 Q 1011.61328125 -696.67578125 1354.875 -647.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="22"></path><text x="1011.61328125" y="-696.67578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">knowledge</text><path d="M 957.9296875 -647.234375 Q 1258.96484375 -580.79296875 1560 -634.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="23"></path><text x="1258.96484375" y="-580.79296875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">hits</text><path d="M 1160 -639.3515625 Q 1360 -576.8515625 1560 -634.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="24"></path><text x="1360" y="-576.8515625" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">results</text><path d="M 1354.875 -647.234375 Q 1457.4375 -599.687138271631 1560 -634.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="25"></path><text x="1457.4375" y="-599.687138271631" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">matches</text><path d="M 1560 -634.3515625 Q 1125 -499.8515625 690 -485.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="26"></path><text x="1125" y="-499.8515625" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">context</text><path d="M 690 -485.3515625 Q 833.4140625 -372.79296875 976.828125 -380.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="27"></path><text x="833.4140625" y="-372.79296875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">draft</text><path d="M 976.828125 -380.234375 Q 1108.9140625 -438.166076101063 1241 -390.3515625" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="28"></path><text x="1108.9140625" y="-438.166076101063" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">safe</text><path d="M 1241 -390.3515625 Q 1391.203125 -455.29296875 1541.40625 -400.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="29"></path><path d="M 1541.40625 -400.234375 Q 1690.37890625 -475.64511168073955 1839.3515625 -431.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="30"></path><text x="1690.37890625" y="-475.64511168073955" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">response</text><path d="M 1839.3515625 -431.234375 Q 1242.10546875 -238.234375 644.859375 -165.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="31"></path><text x="1242.10546875" y="-238.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">record</text><path d="M 1839.3515625 -431.234375 Q 1676.22265625 -213.67578125 1513.09375 -116.1171875" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="32"></path><text x="1676.22265625" y="-213.67578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">reward</text><path d="M 729.9921875 -1282.234375 Q 1195.69921875 -841.234375 1541.40625 -400.234375" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowhead-dashed)" data-idx="33"></path><text x="1195.69921875" y="-841.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">feedback</text><path d="M 644.859375 -165.234375 Q 776.2109375 -231.5517705756115 907.5625 -192.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="34"></path><text x="776.2109375" y="-231.5517705756115" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">persist</text><path d="M 1811.875 -144.1171875 Q 1511.140625 -209.1171875 1210.40625 -154.1171875" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="35"></path><text x="1511.140625" y="-209.1171875" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">signals</text><path d="M 1210.40625 -154.1171875 Q 1058.984375 -233.17578125 907.5625 -192.234375" stroke="#475569" stroke-width="1.5" fill="none" marker-end="url(#arrowhead)" data-idx="36"></path><text x="1058.984375" y="-233.17578125" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">update</text><path d="M 1513.09375 -116.1171875 Q 1425.546875 -505.41015625 1458 -894.703125" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowhead-dashed)" data-idx="37"></path><text x="1425.546875" y="-505.41015625" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">better prompts</text><path d="M 907.5625 -192.234375 Q 1398.21875 -655.234375 1768.875 -1118.234375" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowhead-dashed)" data-idx="38"></path><text x="1398.21875" y="-655.234375" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">enrich</text><defs><marker id="dragArrow" markerWidth="8" markerHeight="6" refX="2" refY="3" orient="auto"><polygon points="6 0, 8 3, 6 6" fill="#22d3ee"></polygon></marker></defs></svg>
+    <div class="canvas" id="canvas" style="transform: translate(280px, -666px);">
+      <!-- Nodes rendered by JS -->
+    <div class="zone-bg" style="position: absolute; left: 30px; top: 0px; width: 200px; height: 110px; background: rgba(251, 146, 60, 0.03); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 38px; top: 6px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 0 · USER CHANNELS</div><div class="zone-bg" style="position: absolute; left: 20px; top: 110px; width: 210px; height: 0px; background: rgba(251, 191, 36, 0.04); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 28px; top: 116px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 1 · INTAKE &amp; ONBOARDING</div><div class="zone-bg" style="position: absolute; left: 20px; top: 260px; width: 210px; background: rgba(251, 113, 133, 0.04); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 28px; top: 266px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 2 · INTENT UNDERSTANDING</div><div class="zone-bg" style="position: absolute; left: 20px; top: 460px; width: 210px; background: rgba(52, 211, 153, 0.04); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 28px; top: 466px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 3 · INFORMATION COLLECTION</div><div class="zone-bg" style="position: absolute; left: 50px; top: 605px; width: 180px; background: rgba(34, 211, 238, 0.04); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 58px; top: 611px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 4 · RESOURCE SEARCH &amp; RETRIEVAL</div><div class="zone-bg" style="position: absolute; left: 20px; top: 760px; width: 210px; background: rgba(167, 139, 250, 0.04); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 28px; top: 766px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 5 · RESPONSE GENERATION</div><div class="zone-bg" style="position: absolute; left: 50px; top: 910px; width: 180px; background: rgba(30, 41, 59, 0.05); border: 1px dashed rgba(148, 163, 184, 0.2); border-radius: 12px; pointer-events: none; z-index: 0;"></div><div class="zone-label" style="position: absolute; left: 58px; top: 916px; font-size: 0.65rem; color: rgb(148, 163, 184); font-weight: 600; letter-spacing: 0.08em; pointer-events: none; z-index: 0; text-transform: uppercase;">ZONE 6 · MEMORY &amp; LEARNING</div><div class="node c-external node-fixed" id="node-user" data-id="user" style="left: 91px; top: 0px;">
+      <div class="node-zone-badge" style="color:#94a3b8">Z0</div>
+      <div class="node-title" contenteditable="false">User Channels</div>
+      <div class="node-sub"><span>CLI · Chat · Voice</span><br><span>(multi-modal input)</span></div>
+      <span class="node-tag" style="background:rgba(30,41,59,0.6);color:#94a3b8">#Slate</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-normalizer" data-id="normalizer" style="left: 0px; top: 157px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z1</div>
+      <div class="node-title" contenteditable="false">Input Normalizer</div>
+      <div class="node-sub"><span>sanitize · tokenize · lang-detect</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-session" data-id="session" style="left: 332px; top: 0px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z1</div>
+      <div class="node-title" contenteditable="false">Session Manager</div>
+      <div class="node-sub"><span>session-id · context-window · history</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-cloud" id="node-onboarding" data-id="onboarding" style="left: 701px; top: 4px;">
+      <div class="node-zone-badge" style="color:#fbbf24">Z1</div>
+      <div class="node-title" contenteditable="false">Onboarding
+Orchestrator</div>
+      <div class="node-sub"><span>new-user → profile wizard</span><br><span>returning → resume context</span></div>
+      <span class="node-tag" style="background:rgba(120,53,15,0.35);color:#fbbf24">#Amber</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-profile" data-id="profile" style="left: 1033px; top: 0px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z1</div>
+      <div class="node-title" contenteditable="false">Profile Builder</div>
+      <div class="node-sub"><span>preference extraction</span><br><span>· demographics</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-database" id="node-profileStore" data-id="profileStore" style="left: 1094px; top: 164px;">
+      <div class="node-zone-badge" style="color:#a78bfa">Z1</div>
+      <div class="node-title" contenteditable="false">User Profile
+Store</div>
+      <div class="node-sub"><span>PostgreSQL · vector embeddings</span><br><span>prefs · history · metadata</span></div>
+      <span class="node-tag" style="background:rgba(76,29,149,0.4);color:#a78bfa">#Violet</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-security" id="node-classifier" data-id="classifier" style="left: 0px; top: 341px;">
+      <div class="node-zone-badge" style="color:#fb7185">Z2</div>
+      <div class="node-title" contenteditable="false">Intent Classifier</div>
+      <div class="node-sub"><span>fine-tuned LLM · DSPy program</span><br><span>categories · confidence scores</span></div>
+      <span class="node-tag" style="background:rgba(136,19,55,0.35);color:#fb7185">#Rose</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-security" id="node-ner" data-id="ner" style="left: 313px; top: 318px;">
+      <div class="node-zone-badge" style="color:#fb7185">Z2</div>
+      <div class="node-title" contenteditable="false">Entity Extractor</div>
+      <div class="node-sub"><span>NER · structured fields · slots</span><br><span>needs · goals · constraints</span></div>
+      <span class="node-tag" style="background:rgba(136,19,55,0.35);color:#fb7185">#Rose</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-backend" id="node-enricher" data-id="enricher" style="left: 569px; top: 160px;">
+      <div class="node-zone-badge" style="color:#34d399">Z2</div>
+      <div class="node-title" contenteditable="false">Context Enricher</div>
+      <div class="node-sub"><span>user-profile lookup · session history</span><br><span>past queries · learned preferences</span></div>
+      <span class="node-tag" style="background:rgba(6,78,59,0.4);color:#34d399">#Emerald</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-cloud" id="node-dspy" data-id="dspy" style="left: 768px; top: 356px;">
+      <div class="node-zone-badge" style="color:#fbbf24">Z2</div>
+      <div class="node-title" contenteditable="false">DSPy Reasoning
+Engine</div>
+      <div class="node-sub"><span>signatures · teleprompters · optimizers</span><br><span>multi-step reasoning · chain-of-thought</span><br><span>self-improving via compile() feedback</span></div>
+      <span class="node-tag" style="background:rgba(120,53,15,0.35);color:#fbbf24">#Amber</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-security" id="node-router" data-id="router" style="left: 1168px; top: 467px;">
+      <div class="node-zone-badge" style="color:#fb7185">Z2</div>
+      <div class="node-title" contenteditable="false">Intent Router</div>
+      <div class="node-sub"><span>question · task · chitchat</span><br><span>search · create · clarify</span></div>
+      <span class="node-tag" style="background:rgba(136,19,55,0.35);color:#fb7185">#Rose</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-wants" data-id="wants" style="left: 0px; top: 509px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z3</div>
+      <div class="node-title" contenteditable="false">Wants Discovery</div>
+      <div class="node-sub"><span>guided questions · active listening</span><br><span>implicit signal detection</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-clarify" data-id="clarify" style="left: 336px; top: 482px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z3</div>
+      <div class="node-title" contenteditable="false">Clarification
+Loop</div>
+      <div class="node-sub"><span>ambiguity resolver · follow-up prompts</span><br><span>multi-turn confirmation</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-backend" id="node-accumulator" data-id="accumulator" style="left: 535px; top: 574px;">
+      <div class="node-zone-badge" style="color:#34d399">Z3</div>
+      <div class="node-title" contenteditable="false">Signal
+Accumulator</div>
+      <div class="node-sub"><span>preference vector · topic clusters</span><br><span>confidence scores · decay tracking</span></div>
+      <span class="node-tag" style="background:rgba(6,78,59,0.4);color:#34d399">#Emerald</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-planner" data-id="planner" style="left: 0px; top: 664px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z4</div>
+      <div class="node-title" contenteditable="false">Query Planner</div>
+      <div class="node-sub"><span>decompose · rephrase · route</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-database" id="node-vector" data-id="vector" style="left: 270px; top: 635px;">
+      <div class="node-zone-badge" style="color:#a78bfa">Z4</div>
+      <div class="node-title" contenteditable="false">Vector Search
+Engine</div>
+      <div class="node-sub"><span>embedding index · similarity top-k</span><br><span>user memory · doc corpus</span></div>
+      <span class="node-tag" style="background:rgba(76,29,149,0.4);color:#a78bfa">#Violet</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-cloud" id="node-tools" data-id="tools" style="left: 470px; top: 635px;">
+      <div class="node-zone-badge" style="color:#fbbf24">Z4</div>
+      <div class="node-title" contenteditable="false">Web / API
+Tool Caller</div>
+      <div class="node-sub"><span>MCP tools · HTTP · arXiv · Polymarket</span><br><span>blog watcher · public-domain books</span></div>
+      <span class="node-tag" style="background:rgba(120,53,15,0.35);color:#fbbf24">#Amber</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-database" id="node-kgraph" data-id="kgraph" style="left: 680px; top: 635px;">
+      <div class="node-zone-badge" style="color:#a78bfa">Z4</div>
+      <div class="node-title" contenteditable="false">Knowledge
+Graph</div>
+      <div class="node-sub"><span>LLM Wiki · extracted entities</span><br><span>relation triples · concept map</span></div>
+      <span class="node-tag" style="background:rgba(76,29,149,0.4);color:#a78bfa">#Violet</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-backend" id="node-reranker" data-id="reranker" style="left: 870px; top: 640px;">
+      <div class="node-zone-badge" style="color:#34d399">Z4</div>
+      <div class="node-title" contenteditable="false">RAG Re-Ranker</div>
+      <div class="node-sub"><span>cross-encoder · MMR · hybrid search</span><br><span>diversity · relevance fusion</span></div>
+      <span class="node-tag" style="background:rgba(6,78,59,0.4);color:#34d399">#Emerald</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-backend" id="node-generator" data-id="generator" style="left: 0px; top: 789px;">
+      <div class="node-zone-badge" style="color:#34d399">Z5</div>
+      <div class="node-title" contenteditable="false">LLM Generator</div>
+      <div class="node-sub"><span>deepseek-v4 / ring-2.6-1t</span><br><span>system prompt · RAG context · schema</span></div>
+      <span class="node-tag" style="background:rgba(6,78,59,0.4);color:#34d399">#Emerald</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-security" id="node-safety" data-id="safety" style="left: 315px; top: 902px;">
+      <div class="node-zone-badge" style="color:#fb7185">Z5</div>
+      <div class="node-title" contenteditable="false">Safety &amp;
+Guardrails</div>
+      <div class="node-sub"><span>content filter · PII scrub</span><br><span>output validation · redact</span></div>
+      <span class="node-tag" style="background:rgba(136,19,55,0.35);color:#fb7185">#Rose</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-formatter" data-id="formatter" style="left: 551px; top: 884px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z5</div>
+      <div class="node-title" contenteditable="false">Response
+Formatter</div>
+      <div class="node-sub"><span>structured · markdown · voice-ready</span><br><span>multimodal rendering</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-humanizer" data-id="humanizer" style="left: 860px; top: 882px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z5</div>
+      <div class="node-title" contenteditable="false">Humanizer</div>
+      <div class="node-sub"><span>strip AI-isms · natural voice</span><br><span>tone matching · user-style adapt</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-backend" id="node-evaluator" data-id="evaluator" style="left: 1171px; top: 851px;">
+      <div class="node-zone-badge" style="color:#34d399">Z5</div>
+      <div class="node-title" contenteditable="false">Evaluator</div>
+      <div class="node-sub"><span>reward model · self-critique</span><br><span>lm-eval-harness · W&amp;B logs</span></div>
+      <span class="node-tag" style="background:rgba(6,78,59,0.4);color:#34d399">#Emerald</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-database" id="node-stMemory" data-id="stMemory" style="left: 0px; top: 1117px;">
+      <div class="node-zone-badge" style="color:#a78bfa">Z6</div>
+      <div class="node-title" contenteditable="false">Short-Term
+Memory</div>
+      <div class="node-sub"><span>conversation buffer</span><br><span>rolling window</span></div>
+      <span class="node-tag" style="background:rgba(76,29,149,0.4);color:#a78bfa">#Violet</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-database" id="node-ltMemory" data-id="ltMemory" style="left: 249px; top: 1090px;">
+      <div class="node-zone-badge" style="color:#a78bfa">Z6</div>
+      <div class="node-title" contenteditable="false">Long-Term
+Memory</div>
+      <div class="node-sub"><span>PostgreSQL · vector store</span><br><span>mem-graph</span></div>
+      <span class="node-tag" style="background:rgba(76,29,149,0.4);color:#a78bfa">#Violet</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-cloud" id="node-learner" data-id="learner" style="left: 529px; top: 1136px;">
+      <div class="node-zone-badge" style="color:#fbbf24">Z6</div>
+      <div class="node-title" contenteditable="false">Preference
+Learner</div>
+      <div class="node-sub"><span>implicit signals · feedback loop</span></div>
+      <span class="node-tag" style="background:rgba(120,53,15,0.35);color:#fbbf24">#Amber</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-cloud selected" id="node-optimizer" data-id="optimizer" style="left: 848px; top: 1174px;">
+      <div class="node-zone-badge" style="color:#fbbf24">Z6</div>
+      <div class="node-title" contenteditable="false">DSPy
+Optimizer</div>
+      <div class="node-sub"><span>MIPRO · signature selection</span></div>
+      <span class="node-tag" style="background:rgba(120,53,15,0.35);color:#fbbf24">#Amber</span>
+      <div class="resize-handle"></div>
+    </div><div class="node c-frontend" id="node-feedback" data-id="feedback" style="left: 1137px; top: 1146px;">
+      <div class="node-zone-badge" style="color:#22d3ee">Z6</div>
+      <div class="node-title" contenteditable="false">Feedback
+Collector</div>
+      <div class="node-sub"><span>thumbs · corrections · ratings</span></div>
+      <span class="node-tag" style="background:rgba(8,51,68,0.4);color:#22d3ee">#Cyan</span>
+      <div class="resize-handle"></div>
+    </div></div>
+    <div class="connection-mode" id="connectionMode">Click a source node, then a target node</div>
+    <div class="minimap" id="minimap"><canvas id="minimapCanvas" width="180" height="120"></canvas></div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="comments">Comments</div>
+      <div class="sidebar-tab" data-tab="properties">Properties</div>
+      <div class="sidebar-tab" data-tab="legend">Legend</div>
+      <div class="sidebar-tab" data-tab="help">Help</div>
+    </div>
+    <div class="sidebar-content" id="sidebarContent">
+      <!-- Comments Tab -->
+      <div class="sidebar-section" id="tab-comments" style="display: block;">
+        <h3>Thread Comments <span id="commentCount" style="color:#22d3ee;font-weight:700">(0)</span></h3>
+        <div id="commentsList"><div style="color:#475569;font-size:0.8rem;padding:8px;">No comments yet. Add your first note!</div></div>
+        <div class="comment-form">
+          <textarea id="commentInput" placeholder="Add a comment... (supports Markdown)"></textarea>
+          <button onclick="submitComment()">Post</button>
+        </div>
+      </div>
+      <!-- Properties Tab -->
+      <div class="sidebar-section props-panel visible" id="tab-properties" style="display: none;">
+        <h3>Selected Node Properties</h3>
+        <div id="propertiesBody">
+    <div class="props-row"><span class="label">ID</span><span class="value">optimizer</span></div>
+    <div class="props-row"><span class="label">Title</span><span class="value"><input value="DSPy
+Optimizer" onchange="updateProp(&#39;optimizer&#39;,&#39;title&#39;,this.value)"></span></div>
+    <div class="props-row"><span class="label">Zone</span><span class="value"><input type="number" value="6" min="0" max="6" onchange="updateProp(&#39;optimizer&#39;,&#39;zone&#39;,+this.value)"></span></div>
+    <div class="props-row"><span class="label">Color</span><span class="value">
+      <select onchange="updateProp(&#39;optimizer&#39;,&#39;color&#39;,this.value)">
+        <option value="frontend">frontend</option><option value="backend">backend</option><option value="database">database</option><option value="cloud" selected="">cloud</option><option value="security">security</option><option value="bus">bus</option><option value="external">external</option>
+      </select>
+    </span></div>
+    <div class="props-row"><span class="label">Subtitle</span><span class="value"><input value="MIPRO · signature selection" onchange="updateProp(&#39;optimizer&#39;,&#39;sub&#39;,this.value)"></span></div>
+    <div class="props-row"><span class="label">Position</span><span class="value">807, 1136</span></div>
+    <div class="props-row"><span class="label">Connections</span><span class="value">2</span></div>
+    <div class="props-row"><span class="label">Outgoing</span><span class="value">dspy</span></div>
+    <div class="props-row"><span class="label">Incoming</span><span class="value">evaluator</span></div>
+    <div style="margin-top:8px;display:flex;gap:6px;">
+      <button onclick="deleteNode(&#39;optimizer&#39;)" style="flex:1;background:rgba(251,113,133,0.15);border-color:#fb7185;color:#fb7185;padding:6px;">Delete Node</button>
+      <button onclick="duplicateNode(&#39;optimizer&#39;)" style="flex:1;">Duplicate</button>
+    </div>
+  </div>
+      </div>
+      <!-- Legend Tab -->
+      <div class="sidebar-section" id="tab-legend" style="display: none;">
+        <h3>Node Color Legend</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          <span style="color:#22d3ee">● Cyan</span> — Frontend / I/O<br>
+          <span style="color:#34d399">● Emerald</span> — Processing / Reasoning<br>
+          <span style="color:#a78bfa">● Violet</span> — Storage / Memory<br>
+          <span style="color:#fbbf24">● Amber</span> — Orchestration / ML<br>
+          <span style="color:#fb7185">● Rose</span> — Safety / Classification<br>
+          <span style="color:#94a3b8">● Slate</span> — External / User<br>
+        </div>
+        <h3 style="margin-top:14px">Zones</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          Zone 1 — Intake &amp; Onboarding<br>
+          Zone 2 — Intent Understanding<br>
+          Zone 3 — Information Collection<br>
+          Zone 4 — Resource Search &amp; Retrieval<br>
+          Zone 5 — Response Generation<br>
+          Zone 6 — Memory &amp; Learning
+        </div>
+      </div>
+      <!-- Help Tab -->
+      <div class="sidebar-section" id="tab-help" style="display: none;">
+        <h3>Keyboard &amp; Mouse</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          <strong>Click</strong> a node to select<br>
+          <strong>Drag</strong> a node to reposition<br>
+          <strong>Double-click</strong> to edit text<br>
+          <strong>Delete</strong> to remove selected node<br>
+          <strong>Escape</strong> to deselect / cancel<br>
+          <strong>Ctrl+S</strong> to save state<br>
+          <strong>Scroll</strong> canvas with mouse wheel<br>
+          <strong>Drag canvas</strong> with right mouse button<br>
+          <strong>P</strong> toggle connection mode<br>
+        </div>
+        <h3 style="margin-top:14px">Features</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          All changes auto-save to<br>browser localStorage.<br>
+          Import/Export as JSON for<br>backup or sharing.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA MODEL
+// ═══════════════════════════════════════════════════════════
+
+const STORAGE_KEY = 'agentic_harness_diagram_v2';
+
+const DEFAULT_NODES = [
+  // Zone 0
+  { id: 'user', title: 'User Channels', sub: 'CLI · Chat · Voice\n(multi-modal input)', color: 'external', x: 60, y: 30, zone: 0, fixed: true },
+
+  // Zone 1
+  { id: 'normalizer', title: 'Input Normalizer', sub: 'sanitize · tokenize · lang-detect', color: 'frontend', x: 50, y: 150, zone: 1 },
+  { id: 'session', title: 'Session Manager', sub: 'session-id · context-window · history', color: 'frontend', x: 240, y: 150, zone: 1 },
+  { id: 'onboarding', title: 'Onboarding\nOrchestrator', sub: 'new-user → profile wizard\nreturning → resume context', color: 'cloud', x: 430, y: 140, zone: 1 },
+  { id: 'profile', title: 'Profile Builder', sub: 'preference extraction\n· demographics', color: 'frontend', x: 630, y: 150, zone: 1 },
+  { id: 'profileStore', title: 'User Profile\nStore', sub: 'PostgreSQL · vector embeddings\nprefs · history · metadata', color: 'database', x: 820, y: 140, zone: 1 },
+
+  // Zone 2
+  { id: 'classifier', title: 'Intent Classifier', sub: 'fine-tuned LLM · DSPy program\ncategories · confidence scores', color: 'security', x: 50, y: 300, zone: 2 },
+  { id: 'ner', title: 'Entity Extractor', sub: 'NER · structured fields · slots\nneeds · goals · constraints', color: 'security', x: 260, y: 300, zone: 2 },
+  { id: 'enricher', title: 'Context Enricher', sub: 'user-profile lookup · session history\npast queries · learned preferences', color: 'backend', x: 460, y: 300, zone: 2 },
+  { id: 'dspy', title: 'DSPy Reasoning\nEngine', sub: 'signatures · teleprompters · optimizers\nmulti-step reasoning · chain-of-thought\nself-improving via compile() feedback', color: 'cloud', x: 660, y: 290, zone: 2 },
+  { id: 'router', title: 'Intent Router', sub: 'question · task · chitchat\nsearch · create · clarify', color: 'security', x: 860, y: 300, zone: 2 },
+
+  // Zone 3
+  { id: 'wants', title: 'Wants Discovery', sub: 'guided questions · active listening\nimplicit signal detection', color: 'frontend', x: 50, y: 490, zone: 3 },
+  { id: 'clarify', title: 'Clarification\nLoop', sub: 'ambiguity resolver · follow-up prompts\nmulti-turn confirmation', color: 'frontend', x: 260, y: 490, zone: 3 },
+  { id: 'accumulator', title: 'Signal\nAccumulator', sub: 'preference vector · topic clusters\nconfidence scores · decay tracking', color: 'backend', x: 460, y: 490, zone: 3 },
+
+  // Zone 4
+  { id: 'planner', title: 'Query Planner', sub: 'decompose · rephrase · route', color: 'frontend', x: 80, y: 640, zone: 4 },
+  { id: 'vector', title: 'Vector Search\nEngine', sub: 'embedding index · similarity top-k\nuser memory · doc corpus', color: 'database', x: 270, y: 635, zone: 4 },
+  { id: 'tools', title: 'Web / API\nTool Caller', sub: 'MCP tools · HTTP · arXiv · Polymarket\nblog watcher · public-domain books', color: 'cloud', x: 470, y: 635, zone: 4 },
+  { id: 'kgraph', title: 'Knowledge\nGraph', sub: 'LLM Wiki · extracted entities\nrelation triples · concept map', color: 'database', x: 680, y: 635, zone: 4 },
+  { id: 'reranker', title: 'RAG Re-Ranker', sub: 'cross-encoder · MMR · hybrid search\ndiversity · relevance fusion', color: 'backend', x: 870, y: 640, zone: 4 },
+
+  // Zone 5
+  { id: 'generator', title: 'LLM Generator', sub: 'deepseek-v4 / ring-2.6-1t\nsystem prompt · RAG context · schema', color: 'backend', x: 50, y: 790, zone: 5 },
+  { id: 'safety', title: 'Safety &\nGuardrails', sub: 'content filter · PII scrub\noutput validation · redact', color: 'security', x: 270, y: 790, zone: 5 },
+  { id: 'formatter', title: 'Response\nFormatter', sub: 'structured · markdown · voice-ready\nmultimodal rendering', color: 'frontend', x: 480, y: 790, zone: 5 },
+  { id: 'humanizer', title: 'Humanizer', sub: 'strip AI-isms · natural voice\ntone matching · user-style adapt', color: 'frontend', x: 690, y: 790, zone: 5 },
+  { id: 'evaluator', title: 'Evaluator', sub: 'reward model · self-critique\nlm-eval-harness · W&B logs', color: 'backend', x: 870, y: 790, zone: 5 },
+
+  // Zone 6
+  { id: 'stMemory', title: 'Short-Term\nMemory', sub: 'conversation buffer\nrolling window', color: 'database', x: 80, y: 940, zone: 6 },
+  { id: 'ltMemory', title: 'Long-Term\nMemory', sub: 'PostgreSQL · vector store\nmem-graph', color: 'database', x: 300, y: 940, zone: 6 },
+  { id: 'learner', title: 'Preference\nLearner', sub: 'implicit signals · feedback loop', color: 'cloud', x: 530, y: 940, zone: 6 },
+  { id: 'optimizer', title: 'DSPy\nOptimizer', sub: 'MIPRO · signature selection', color: 'cloud', x: 710, y: 940, zone: 6 },
+  { id: 'feedback', title: 'Feedback\nCollector', sub: 'thumbs · corrections · ratings', color: 'frontend', x: 900, y: 940, zone: 6 },
+];
+
+const DEFAULT_CONNECTIONS = [
+  // Zone 0 → 1
+  { from: 'user', to: 'normalizer', label: 'raw input' },
+
+  // Zone 1 internal
+  { from: 'normalizer', to: 'session', label: 'context' },
+  { from: 'session', to: 'onboarding', label: 'state' },
+  { from: 'onboarding', to: 'profile', label: 'prefs' },
+  { from: 'profile', to: 'profileStore', label: 'store' },
+  // Returning user shortcut
+  { from: 'onboarding', to: 'classifier', label: 'returning\n(shortcut)', dashed: true },
+
+  // Zone 1 → 2
+  { from: 'normalizer', to: 'classifier', label: 'normalized' },
+  { from: 'session', to: 'enricher', label: 'session ctx' },
+  { from: 'profileStore', to: 'enricher', label: 'user profile' },
+
+  // Zone 2 internal
+  { from: 'classifier', to: 'router', label: 'intent' },
+  { from: 'classifier', to: 'ner', label: 'entities' },
+  { from: 'ner', to: 'enricher', label: '' },
+  { from: 'enricher', to: 'dspy', label: 'rich ctx' },
+  { from: 'dspy', to: 'router', label: 'reasoned intent' },
+
+  // Zone 2 → 3
+  { from: 'classifier', to: 'wants', label: 'needs' },
+  { from: 'router', to: 'clarify', label: 'clarify?' },
+  { from: 'wants', to: 'clarify', label: 'refine' },
+  { from: 'clarify', to: 'accumulator', label: 'confirmed' },
+
+  // Zone 3 → 4
+  { from: 'wants', to: 'planner', label: 'query' },
+  { from: 'accumulator', to: 'planner', label: 'pref query' },
+  { from: 'planner', to: 'vector', label: 'vec query' },
+  { from: 'planner', to: 'tools', label: 'web lookup' },
+  { from: 'planner', to: 'kgraph', label: 'knowledge' },
+  { from: 'vector', to: 'reranker', label: 'hits' },
+  { from: 'tools', to: 'reranker', label: 'results' },
+  { from: 'kgraph', to: 'reranker', label: 'matches' },
+
+  // Zone 4 → 5
+  { from: 'reranker', to: 'generator', label: 'context' },
+  { from: 'generator', to: 'safety', label: 'draft' },
+  { from: 'safety', to: 'formatter', label: 'safe' },
+  { from: 'formatter', to: 'humanizer', label: '' },
+  { from: 'humanizer', to: 'evaluator', label: 'response' },
+
+  // Zone 5 → 6 / feedback
+  { from: 'evaluator', to: 'stMemory', label: 'record' },
+  { from: 'evaluator', to: 'optimizer', label: 'reward' },
+  { from: 'user', to: 'humanizer', label: 'feedback', dashed: true },
+
+  // Zone 6 internal
+  { from: 'stMemory', to: 'ltMemory', label: 'persist' },
+  { from: 'feedback', to: 'learner', label: 'signals' },
+  { from: 'learner', to: 'ltMemory', label: 'update' },
+  { from: 'optimizer', to: 'dspy', label: 'better prompts', dashed: true },
+
+  // Long-term ↔ profile
+  { from: 'ltMemory', to: 'profileStore', label: 'enrich', dashed: true },
+];
+
+let nodes = [];
+let connections = [];
+let selectedId = null;
+let draggingId = null;
+let dragOffX = 0, dragOffY = 0;
+let canvasOffset = { x: 0, y: 0 };
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let connMode = false;
+let connSource = null;
+let nextId = 1000;
+let comments = [];
+let undoStack = [];
+
+// ═══════════════════════════════════════════════════════════
+// COLOR MAP
+// ═══════════════════════════════════════════════════════════
+const COLORS = {
+  frontend: { border: '#22d3ee', bg: 'rgba(8,51,68,0.4)', text: '#22d3ee', label: '#Cyan' },
+  backend:  { border: '#34d399', bg: 'rgba(6,78,59,0.4)', text: '#34d399', label: '#Emerald' },
+  database: { border: '#a78bfa', bg: 'rgba(76,29,149,0.4)', text: '#a78bfa', label: '#Violet' },
+  cloud:    { border: '#fbbf24', bg: 'rgba(120,53,15,0.35)', text: '#fbbf24', label: '#Amber' },
+  security: { border: '#fb7185', bg: 'rgba(136,19,55,0.35)', text: '#fb7185', label: '#Rose' },
+  bus:      { border: '#fb923c', bg: 'rgba(251,146,60,0.25)', text: '#fb923c', label: '#Orange' },
+  external: { border: '#94a3b8', bg: 'rgba(30,41,59,0.6)', text: '#94a3b8', label: '#Slate' },
+};
+
+const ZONE_LABELS = {
+  0: 'ZONE 0 · USER CHANNELS',
+  1: 'ZONE 1 · INTAKE & ONBOARDING',
+  2: 'ZONE 2 · INTENT UNDERSTANDING',
+  3: 'ZONE 3 · INFORMATION COLLECTION',
+  4: 'ZONE 4 · RESOURCE SEARCH & RETRIEVAL',
+  5: 'ZONE 5 · RESPONSE GENERATION',
+  6: 'ZONE 6 · MEMORY & LEARNING',
+};
+
+const ZONE_COLORS = [
+  'rgba(251,146,60,0.03)',
+  'rgba(251,191,36,0.04)',
+  'rgba(251,113,133,0.04)',
+  'rgba(52,211,153,0.04)',
+  'rgba(34,211,238,0.04)',
+  'rgba(167,139,250,0.04)',
+  'rgba(30,41,59,0.05)',
+];
+
+// ═══════════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+
+function save() {
+  const data = { nodes, connections, comments, nextId, canvasOffset };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    showToast('Saved to localStorage');
+  } catch (e) {
+    console.error('Save failed:', e);
+    showToast('Save failed: ' + e.message, 'error');
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      nodes = data.nodes || [];
+      connections = data.connections || [];
+      comments = data.comments || [];
+      nextId = data.nextId || 1000;
+      canvasOffset = data.canvasOffset || { x: 0, y: 0 };
+      return true;
+    }
+  } catch (e) {
+    console.error('Load failed:', e);
+  }
+  return false;
+}
+
+function exportDiagram() {
+  save();
+  const data = JSON.stringify({ nodes, connections, comments, nextId }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'agentic-harness-diagram.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported as JSON');
+}
+
+function importDiagram() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.nodes && data.connections) {
+          nodes = data.nodes;
+          connections = data.connections;
+          comments = data.comments || [];
+          nextId = data.nextId || 1000;
+          canvasOffset = data.canvasOffset || { x: 0, y: 0 };
+          save();
+          render();
+          renderComments();
+          showToast('Imported successfully');
+        } else {
+          showToast('Invalid diagram file', 'error');
+        }
+      } catch (err) {
+        showToast('Parse error: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════
+
+function renderConnections() {
+  const svg = document.getElementById('connectionsSvg');
+  const wrapper = document.getElementById('canvasWrapper');
+  const rect = wrapper.getBoundingClientRect();
+
+  let html = '<defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#64748b" /></marker><marker id="arrowhead-highlight" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#22d3ee" /></marker><marker id="arrowhead-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#fbbf24" /></marker></defs>';
+
+  connections.forEach((conn, idx) => {
+    const fromNode = document.getElementById('node-' + conn.from);
+    const toNode = document.getElementById('node-' + conn.to);
+    if (!fromNode || !toNode) return;
+
+    const fromRect = fromNode.getBoundingClientRect();
+    const toRect = toNode.getBoundingClientRect();
+
+    const x1 = fromRect.left + fromRect.width / 2 - rect.left + canvasOffset.x;
+    const y1 = fromRect.top + fromRect.height / 2 - rect.top + canvasOffset.y;
+    const x2 = toRect.left + toRect.width / 2 - rect.left + canvasOffset.x;
+    const y2 = toRect.top + toRect.height / 2 - rect.top + canvasOffset.y;
+
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const curvature = Math.min(60, dist * 0.2);
+
+    let midX = (x1 + x2) / 2;
+    let midY = (y1 + y2) / 2;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      midY += (dy > 0 ? 1 : -1) * curvature;
+    } else {
+      midX += (dx > 0 ? 1 : -1) * curvature;
+    }
+
+    const marker = conn.dashed ? 'url(#arrowhead-dashed)' : 'url(#arrowhead)';
+    const style = conn.dashed ? `stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,4"` : `stroke="#475569" stroke-width="1.5"`;
+
+    const path = `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+    html += `<path d="${path}" ${style} fill="none" marker-end="${marker}" data-idx="${idx}" />`;
+
+    if (conn.label) {
+      const lines = conn.label.split('\n');
+      const lmX = midX, lmY = midY;
+      lines.forEach((line, li) => {
+        html += `<text x="${lmX}" y="${lmY + li * 11 - (lines.length - 1) * 5}" fill="#64748b" font-size="8" text-anchor="middle" pointer-events="none" font-family="JetBrains Mono">${escapeHtml(line)}</text>`;
+      });
+    }
+  });
+
+  html += `<defs><marker id="dragArrow" markerWidth="8" markerHeight="6" refX="2" refY="3" orient="auto"><polygon points="6 0, 8 3, 6 6" fill="#22d3ee" /></marker></defs>`;
+
+  if (connMode && connSource) {
+    const srcNode = document.getElementById('node-' + connSource);
+    if (srcNode) {
+      const sr = srcNode.getBoundingClientRect();
+      const px = sr.left + sr.width / 2 - rect.left + canvasOffset.x;
+      const py = sr.top + sr.height / 2 - rect.top + canvasOffset.y;
+      html += `<path d="M ${px} ${py} L ${connMouseX} ${connMouseY}" stroke="#22d3ee" stroke-width="2" stroke-dasharray="5,5" fill="none" marker-end="url(#dragArrow)" />`;
+    }
+  }
+
+  svg.innerHTML = html;
+}
+
+function renderZones() {
+  const canvas = document.getElementById('canvas');
+  let existingZones = canvas.querySelectorAll('.zone-bg');
+  existingZones.forEach(z => z.remove());
+
+  const zoneGroups = {};
+  nodes.forEach(n => {
+    if (!zoneGroups[n.zone]) zoneGroups[n.zone] = [];
+    zoneGroups[n.zone].push(n);
+  });
+
+  Object.entries(zoneGroups).forEach(([zone, group]) => {
+    if (zone == null || zone === undefined) return;
+    const minX = Math.min(...group.map(n => n.x)) - 30;
+    const minY = Math.min(...group.map(n => n.y)) - 30;
+    const maxX = Math.max(...group.map(n => n.x + n.w || 200)) + 30;
+    const maxY = Math.max(...group.map(n => n.y + n.h || 80)) + 30;
+
+    const bg = document.createElement('div');
+    bg.className = 'zone-bg';
+    bg.style.cssText = `
+      position:absolute; left:${minX}px; top:${minY}px;
+      width:${maxX - minX}px; height:${maxY - minY}px;
+      background:${ZONE_COLORS[zone] || 'rgba(30,41,59,0.03)'};
+      border:1px dashed ${COLORS.external.border}33;
+      border-radius:12px; pointer-events:none; z-index:0;
+    `;
+    canvas.appendChild(bg);
+
+    const label = document.createElement('div');
+    label.className = 'zone-label';
+    label.textContent = ZONE_LABELS[zone] || `Zone ${zone}`;
+    label.style.cssText = `
+      position:absolute; left:${minX + 8}px; top:${minY + 6}px;
+      font-size:0.65rem; color:${COLORS.external.border};
+      font-weight:600; letter-spacing:0.08em;
+      pointer-events:none; z-index:0;
+      text-transform:uppercase;
+    `;
+    canvas.appendChild(label);
+  });
+}
+
+function measureNode(n) {
+  const el = document.getElementById('node-' + n.id);
+  if (el) {
+    n.w = el.offsetWidth;
+    n.h = el.offsetHeight;
+  } else {
+    n.w = 160;
+    n.h = 60;
+  }
+}
+
+function render() {
+  const canvas = document.getElementById('canvas');
+  // Remove old nodes
+  canvas.querySelectorAll('.node').forEach(el => el.remove());
+  renderZones();
+
+  nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = `node c-${n.color} ${n.fixed ? 'node-fixed' : ''}`;
+    div.id = 'node-' + n.id;
+    div.dataset.id = n.id;
+    div.style.left = n.x + 'px';
+    div.style.top = n.y + 'px';
+
+    const color = COLORS[n.color] || COLORS.external;
+    const subLines = (n.sub || '').split('\n').map(s => `<span>${escapeHtml(s)}</span>`).join('<br>');
+
+    div.innerHTML = `
+      <div class="node-zone-badge" style="color:${color.text}">Z${n.zone != null ? n.zone : ''}</div>
+      <div class="node-title" contenteditable="false">${escapeHtml(n.title)}</div>
+      <div class="node-sub">${subLines}</div>
+      <span class="node-tag" style="background:${color.bg};color:${color.text}">${color.label}</span>
+      <div class="resize-handle"></div>
+    `;
+
+    setupNodeEvents(div);
+    canvas.appendChild(div);
+    measureNode(n);
+  });
+
+  renderConnections();
+}
+
+// ═══════════════════════════════════════════════════════════
+// NODE EVENTS
+// ═══════════════════════════════════════════════════════════
+
+function setupNodeEvents(el) {
+  const nodeId = el.dataset.id;
+
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.resize-handle')) return;
+    if (e.target.getAttribute('contenteditable') === 'true') return;
+
+    if (connMode) {
+      if (!connSource) {
+        connSource = nodeId;
+        document.getElementById('connectionMode').textContent = 'Now click a target node';
+        showToast(`Source: ${getNodeById(nodeId).title}`);
+      } else if (connSource !== nodeId) {
+        const srcNode = getNodeById(connSource);
+        connections.push({
+          from: connSource,
+          to: nodeId,
+          label: '',
+          dashed: false
+        });
+        connSource = null;
+        connMode = false;
+        document.getElementById('connectionMode').classList.remove('active');
+        renderConnections();
+        save();
+        showToast(`Connection: ${srcNode.title} → ${getNodeById(nodeId).title}`);
+      }
+      return;
+    }
+
+    selectNode(nodeId);
+    e.stopPropagation();
+  });
+
+  el.addEventListener('dblclick', (e) => {
+    const titleEl = el.querySelector('.node-title');
+    if (titleEl) {
+      titleEl.contentEditable = 'true';
+      titleEl.focus();
+      selectText(titleEl);
+    }
+    e.stopPropagation();
+  });
+
+  el.addEventListener('focusout', (e) => {
+    if (e.target.classList.contains('node-title')) {
+      e.target.contentEditable = 'false';
+      const n = getNodeById(nodeId);
+      if (n) n.title = e.target.textContent.trim();
+      save();
+    }
+  });
+
+  // Drag
+  el.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('[contenteditable="true"]')) return;
+    if (connMode) return;
+
+    draggingId = nodeId;
+    const rect = el.getBoundingClientRect();
+    dragOffX = e.clientX - rect.left;
+    dragOffY = e.clientY - rect.top;
+    el.classList.add('dragging');
+    pushUndo();
+    e.preventDefault();
+  });
+
+  // Resize
+  const handle = el.querySelector('.resize-handle');
+  if (handle) {
+    let startX, startY, startW, startH;
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const n = getNodeById(nodeId);
+      if (!n) return;
+      pushUndo();
+      startX = e.clientX; startY = e.clientY;
+      startW = el.offsetWidth; startH = el.offsetHeight;
+
+      const onMove = (ev) => {
+        n.w = Math.max(120, startW + (ev.clientX - startX));
+        n.h = Math.max(40, startH + (ev.clientY - startY));
+        el.style.width = n.w + 'px';
+        el.style.height = n.h + 'px';
+        renderConnections();
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        save();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CANVAS PAN & ZOOM
+// ═══════════════════════════════════════════════════════════
+
+function setupCanvasEvents() {
+  const wrapper = document.getElementById('canvasWrapper');
+
+  wrapper.addEventListener('mousedown', (e) => {
+    if (e.button === 1 || (e.button === 0 && e.target === document.getElementById('canvas'))) {
+      isPanning = true;
+      panStart = { x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y };
+      document.getElementById('canvas').classList.add('dragging');
+    }
+  });
+
+  wrapper.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    // Simple zoom not implemented for stability, just pan
+  }, { passive: false });
+
+  document.addEventListener('mousemove', (e) => {
+    if (draggingId) {
+      const n = getNodeById(draggingId);
+      const wrapper = document.getElementById('canvasWrapper');
+      const wr = wrapper.getBoundingClientRect();
+      n.x = Math.max(0, e.clientX - wr.left - canvasOffset.x - dragOffX);
+      n.y = Math.max(0, e.clientY - wr.top - canvasOffset.y - dragOffY);
+      const el = document.getElementById('node-' + draggingId);
+      if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+      renderConnections();
+    }
+
+    if (isPanning) {
+      canvasOffset.x = e.clientX - panStart.x;
+      canvasOffset.y = e.clientY - panStart.y;
+      applyCanvasOffset();
+    }
+
+    if (connMode && connSource) {
+      connMouseX = e.clientX;
+      connMouseY = e.clientY;
+      renderConnections();
+    }
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (draggingId) {
+      const el = document.getElementById('node-' + draggingId);
+      if (el) el.classList.remove('dragging');
+      draggingId = null;
+      save();
+    }
+    if (isPanning) {
+      isPanning = false;
+      document.getElementById('canvas').classList.remove('dragging');
+      save();
+    }
+  });
+}
+
+function applyCanvasOffset() {
+  const canvas = document.getElementById('canvas');
+  canvas.style.transform = `translate(${canvasOffset.x}px, ${canvasOffset.y}px)`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SELECTION & ACTIONS
+// ═══════════════════════════════════════════════════════════
+
+function selectNode(id) {
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  selectedId = id;
+  const el = document.getElementById('node-' + id);
+  if (el) {
+    el.classList.add('selected');
+    showProperties(id);
+  }
+}
+
+function deselectAll() {
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  selectedId = null;
+  document.getElementById('tab-properties').classList.remove('visible');
+}
+
+function getNodeById(id) { return nodes.find(n => n.id === id); }
+
+function showProperties(id) {
+  const n = getNodeById(id);
+  if (!n) return;
+  const panel = document.getElementById('tab-properties');
+  panel.classList.add('visible');
+  const body = document.getElementById('propertiesBody');
+
+  const connCount = connections.filter(c => c.from === id || c.to === id).length;
+  const outgoing = connections.filter(c => c.from === id);
+  const incoming = connections.filter(c => c.to === id);
+
+  body.innerHTML = `
+    <div class="props-row"><span class="label">ID</span><span class="value">${n.id}</span></div>
+    <div class="props-row"><span class="label">Title</span><span class="value"><input value="${escapeAttr(n.title)}" onchange="updateProp('${id}','title',this.value)"></span></div>
+    <div class="props-row"><span class="label">Zone</span><span class="value"><input type="number" value="${n.zone}" min="0" max="6" onchange="updateProp('${id}','zone',+this.value)"></span></div>
+    <div class="props-row"><span class="label">Color</span><span class="value">
+      <select onchange="updateProp('${id}','color',this.value)">
+        ${Object.keys(COLORS).map(c => `<option value="${c}" ${n.color===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </span></div>
+    <div class="props-row"><span class="label">Subtitle</span><span class="value"><input value="${escapeAttr(n.sub||'')}" onchange="updateProp('${id}','sub',this.value)"></span></div>
+    <div class="props-row"><span class="label">Position</span><span class="value">${Math.round(n.x)}, ${Math.round(n.y)}</span></div>
+    <div class="props-row"><span class="label">Connections</span><span class="value">${connCount}</span></div>
+    <div class="props-row"><span class="label">Outgoing</span><span class="value">${outgoing.map(c=>c.to).join(', ') || '—'}</span></div>
+    <div class="props-row"><span class="label">Incoming</span><span class="value">${incoming.map(c=>c.from).join(', ') || '—'}</span></div>
+    <div style="margin-top:8px;display:flex;gap:6px;">
+      <button onclick="deleteNode('${id}')" style="flex:1;background:rgba(251,113,133,0.15);border-color:#fb7185;color:#fb7185;padding:6px;">Delete Node</button>
+      <button onclick="duplicateNode('${id}')" style="flex:1;">Duplicate</button>
+    </div>
+  `;
+}
+
+function updateProp(id, prop, value) {
+  const n = getNodeById(id);
+  if (!n) return;
+  pushUndo();
+  n[prop] = value;
+  save();
+  render();
+  selectNode(id);
+}
+
+function deleteNode(id) {
+  pushUndo();
+  nodes = nodes.filter(n => n.id !== id);
+  connections = connections.filter(c => c.from !== id && c.to !== id);
+  save();
+  render();
+  deselectAll();
+  showToast('Node deleted');
+}
+
+function duplicateNode(id) {
+  const orig = getNodeById(id);
+  if (!orig) return;
+  pushUndo();
+  const newNode = { ...orig, id: 'node_' + (nextId++), title: orig.title + ' (copy)', x: orig.x + 30, y: orig.y + 30 };
+  nodes.push(newNode);
+  save();
+  render();
+  selectNode(newNode.id);
+  showToast('Node duplicated');
+}
+
+function addNode() {
+  pushUndo();
+  const newNode = {
+    id: 'node_' + (nextId++),
+    title: 'New Node',
+    sub: 'Double-click to edit',
+    color: 'frontend',
+    x: 100 + Math.random() * 600,
+    y: 100 + Math.random() * 500,
+    zone: null
+  };
+  nodes.push(newNode);
+  save();
+  render();
+  selectNode(newNode.id);
+  showToast('New node added — click to edit');
+}
+
+let connMouseX = 0, connMouseY = 0;
+function addConnection() {
+  connMode = !connMode;
+  connSource = null;
+  const el = document.getElementById('connectionMode');
+  el.textContent = connMode ? 'Click a source node, then a target node' : '';
+  el.classList.toggle('active', connMode);
+  showToast(connMode ? 'Connection mode: click source node' : 'Connection mode off');
+}
+
+function undo() {
+  if (undoStack.length > 0) {
+    const state = undoStack.pop();
+    nodes = state.nodes;
+    connections = state.connections;
+    save();
+    render();
+    showToast('Undo');
+  }
+}
+
+function pushUndo() {
+  undoStack.push({ nodes: JSON.parse(JSON.stringify(nodes)), connections: JSON.parse(JSON.stringify(connections)) });
+  if (undoStack.length > 50) undoStack.shift();
+}
+
+function resetView() {
+  canvasOffset = { x: 0, y: 0 };
+  applyCanvasOffset();
+  renderConnections();
+  showToast('View reset');
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMMENTS
+// ═══════════════════════════════════════════════════════════
+
+function submitComment() {
+  const input = document.getElementById('commentInput');
+  const text = input.value.trim();
+  if (!text) return;
+  comments.push({
+    author: 'You',
+    text: text,
+    time: new Date().toLocaleString(),
+    nodeId: selectedId || null
+  });
+  input.value = '';
+  save();
+  renderComments();
+  showToast('Comment added');
+}
+
+function deleteComment(idx) {
+  comments.splice(idx, 1);
+  save();
+  renderComments();
+}
+
+function renderComments() {
+  const list = document.getElementById('commentsList');
+  const count = document.getElementById('commentCount');
+  count.textContent = `(${comments.length})`;
+
+  if (comments.length === 0) {
+    list.innerHTML = '<div style="color:#475569;font-size:0.8rem;padding:8px;">No comments yet. Add your first note!</div>';
+    return;
+  }
+
+  list.innerHTML = comments.map((c, i) => {
+    const nodeTag = c.nodeId ? ` <span style="color:#22d3ee;font-size:0.65rem">→ ${escapeHtml(getNodeById(c.nodeId)?.title || c.nodeId)}</span>` : '';
+    return `<div class="comment-item" style="border-left-color:${c.nodeId ? '#22d3ee' : '#334155'}">
+      <div class="comment-author">${escapeHtml(c.author)} ${nodeTag}</div>
+      <div class="comment-text">${markdownToHtml(escapeHtml(c.text))}</div>
+      <div class="comment-time">${c.time} <button onclick="deleteComment(${i})" style="background:none;border:none;color:#fb7185;cursor:pointer;font-size:0.65rem;">✕</button></div>
+    </div>`;
+  }).reverse().join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function escapeAttr(str) {
+  return str.replace(/"/g,'&quot;');
+}
+
+function markdownToHtml(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(30,41,59,0.5);padding:1px 4px;border-radius:3px">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+
+let toastTimeout;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type === 'error' ? 'rgba(251,113,133,0.9)' : 'rgba(34,211,238,0.9)';
+  t.style.display = 'block';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.style.display = 'none', 2500);
+}
+
+function selectText(el) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+// ═══════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.getAttribute('contenteditable') === 'true') {
+    if (e.key === 'Escape') e.target.blur();
+    return;
+  }
+
+  if (e.key === 'Delete' && selectedId) {
+    deleteNode(selectedId);
+  }
+  if (e.key === 'Escape') {
+    deselectAll();
+    if (connMode) {
+      connMode = false;
+      connSource = null;
+      document.getElementById('connectionMode').classList.remove('active');
+    }
+  }
+  if (e.key === 'p' || e.key === 'P') {
+    addConnection();
+  }
+  if (e.ctrlKey && e.key === 'z') {
+    e.preventDefault();
+    undo();
+  }
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    save();
+  }
+  if (e.key === 'c' && selectedId) {
+    addComment();
+    document.getElementById('commentInput').focus();
+  }
+});
+
+// Tab switching
+document.querySelectorAll('.sidebar-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.sidebar-section').forEach(s => s.style.display = 'none');
+    document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+
+// Create toast element
+const toast = document.createElement('div');
+toast.id = 'toast';
+toast.style.cssText = `
+  display:none; position:fixed; bottom:24px; left:50%;
+  transform:translateX(-50%); padding:10px 24px;
+  border-radius:8px; color:#fff; font-size:0.8rem;
+  font-family:'JetBrains Mono',monospace; z-index:9999;
+  transition:opacity 0.3s; box-shadow:0 4px 20px rgba(0,0,0,0.4);
+`;
+document.body.appendChild(toast);
+
+// ═══════════════════════════════════════════════════════════
+// COMMENT HELPERS
+// ═══════════════════════════════════════════════════════════
+
+function addComment() {
+  // switch to comments tab
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="comments"]').classList.add('active');
+  document.querySelectorAll('.sidebar-section').forEach(s => s.style.display = 'none');
+  document.getElementById('tab-comments').style.display = 'block';
+  document.getElementById('commentInput').focus();
+}
+
+// ═══════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════
+
+function renderMinimap() {
+  const mc = document.getElementById('minimapCanvas');
+  const ctx = mc.getContext('2d');
+  mc.width = 180; mc.height = 120;
+
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, 180, 120);
+
+  // Find bounds
+  if (nodes.length === 0) return;
+  const minX = Math.min(...nodes.map(n => n.x));
+  const minY = Math.min(...nodes.map(n => n.y));
+  const maxX = Math.max(...nodes.map(n => n.x + (n.w || 160)));
+  const maxY = Math.max(...nodes.map(n => n.y + (n.h || 80)));
+
+  const scaleX = 170 / Math.max(maxX - minX + 60, 1);
+  const scaleY = 110 / Math.max(maxY - minY + 60, 1);
+  const scale = Math.min(scaleX, scaleY);
+
+  nodes.forEach(n => {
+    const c = COLORS[n.color] || COLORS.external;
+    ctx.fillStyle = c.border + '88';
+    ctx.fillRect(
+      5 + (n.x - minX + 10) * scale,
+      5 + (n.y - minY + 10) * scale,
+      Math.max(4, (n.w || 160) * scale),
+      Math.max(3, (n.h || 80) * scale)
+    );
+  });
+
+  // Viewport indicator
+  const wrapper = document.getElementById('canvasWrapper');
+  const wr = wrapper.getBoundingClientRect();
+  const vpX = (-canvasOffset.x / (maxX - minX + 60)) * 170 + 5;
+  const vpY = (-canvasOffset.y / (maxY - minY + 60)) * 110 + 5;
+  const vpW = (wr.width / (maxX - minX + 60)) * 170;
+  const vpH = (wr.height / (maxY - minY + 60)) * 110;
+
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(vpX, vpY, vpW, vpH);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+
+(function init() {
+  if (!load()) {
+    nodes = JSON.parse(JSON.stringify(DEFAULT_NODES));
+    connections = JSON.parse(JSON.stringify(DEFAULT_CONNECTIONS));
+    canvasOffset = { x: 40, y: 20 };
+    save();
+  }
+
+  render();
+  renderComments();
+  setupCanvasEvents();
+  renderMinimap();
+
+  // Auto-save every 30s
+  setInterval(() => { save(); renderMinimap(); }, 30000);
+})();
+</script><div id="toast" style="display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 24px; border-radius: 8px; color: rgb(255, 255, 255); font-size: 0.8rem; font-family: &quot;JetBrains Mono&quot;, monospace; z-index: 9999; transition: opacity 0.3s; box-shadow: rgba(0, 0, 0, 0.4) 0px 4px 20px; background: rgba(34, 211, 238, 0.9);">Saved to localStorage</div>
+
+</body></html>

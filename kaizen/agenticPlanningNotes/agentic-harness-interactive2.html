@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Harness — Interactive Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      height: 100vh;
+      overflow: hidden;
+      color: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top Bar ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 20px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .pulse-dot {
+      width: 10px; height: 10px; background: #22d3ee;
+      border-radius: 50%; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .topbar h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+    .topbar .subtitle { color: #64748b; font-size: 0.75rem; }
+    .topbar .zoom-controls { display: flex; align-items: center; gap: 6px; }
+    .topbar .zoom-controls button {
+      background: rgba(30,41,59,0.6); border: 1px solid #334155;
+      color: #94a3b8; padding: 4px 10px; border-radius: 6px;
+      font-family: inherit; font-size: 0.8rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .topbar .zoom-controls button:hover { background: #334155; color: #e2e8f0; }
+    .topbar .zoom-controls button.primary { background: rgba(34,211,238,0.15); border-color: #22d3ee; color: #22d3ee; }
+    .topbar .zoom-controls button.primary:hover { background: rgba(34,211,238,0.25); }
+    .zoom-label { font-size: 0.72rem; color: #64748b; min-width: 40px; text-align: center; }
+
+    .topbar-actions { display: flex; gap: 8px; }
+    .topbar-actions button {
+      background: rgba(30,41,59,0.6); border: 1px solid #334155;
+      color: #94a3b8; padding: 5px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 0.75rem; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .topbar-actions button:hover { background: #334155; color: #e2e8f0; }
+    .topbar-actions button.primary { background: rgba(34,211,238,0.15); border-color: #22d3ee; color: #22d3ee; }
+    .topbar-actions button.primary:hover { background: rgba(34,211,238,0.25); }
+
+    /* ── Main Layout ── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Canvas ── */
+    .canvas-wrapper {
+      flex: 1; position: relative; overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, rgba(30,41,59,0.12) 0%, transparent 70%);
+    }
+    .canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 3000px; height: 2000px;
+      will-change: transform;
+    }
+    .canvas.dragging { cursor: grabbing; }
+
+    /* ── SVG Connections ── */
+    .connections-svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 1;
+    }
+    .connections-svg path {
+      fill: none; stroke-width: 1.8;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+    .connections-svg path:hover { stroke-width: 3.5; stroke: #22d3ee !important; }
+    .connections-svg text {
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Nodes ── */
+    .node {
+      position: absolute; z-index: 10;
+      min-width: 130px; max-width: 280px;
+      background: rgba(15,23,42,0.92);
+      border: 1.5px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: move;
+      user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .node:hover { border-color: #64748b; box-shadow: 0 0 20px rgba(0,0,0,0.4); }
+    .node.selected { border-color: #22d3ee; box-shadow: 0 0 16px rgba(34,211,238,0.25); }
+    .node.dragging { opacity: 0.85; z-index: 100; }
+    .node-title {
+      font-size: 0.82rem; font-weight: 700; margin-bottom: 3px;
+      cursor: text; padding: 2px 4px; border-radius: 3px;
+      display: inline-block;
+    }
+    .node-title:hover { background: rgba(255,255,255,0.05); }
+    .node-title[contenteditable="true"] { outline: 1px dashed #64748b; background: rgba(255,255,255,0.05); }
+    .node-sub { font-size: 0.68rem; color: #64748b; line-height: 1.45; }
+    .node-sub span { cursor: text; padding: 1px 3px; border-radius: 2px; }
+    .node-sub span:hover { background: rgba(255,255,255,0.05); }
+    .node-tag {
+      display: inline-block; font-size: 0.6rem; padding: 1px 5px;
+      border-radius: 3px; margin-top: 4px; font-weight: 500;
+    }
+    .node-zone-badge {
+      position: absolute; top: -9px; left: 8px;
+      font-size: 0.55rem; padding: 1px 6px;
+      border-radius: 3px; font-weight: 600;
+      background: #0f172a; border: 1px solid #334155;
+    }
+    .node .resize-handle {
+      position: absolute; bottom: 0; right: 0;
+      width: 14px; height: 14px; cursor: nwse-resize;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .node:hover .resize-handle { opacity: 0.6; }
+
+    /* Color themes */
+    .c-frontend  { border-left: 3px solid #22d3ee; }
+    .c-frontend .node-title { color: #22d3ee; }
+    .c-frontend .node-tag  { background: rgba(34,211,238,0.15); color: #22d3ee; }
+    .c-backend   { border-left: 3px solid #34d399; }
+    .c-backend .node-title { color: #34d399; }
+    .c-backend .node-tag  { background: rgba(52,211,153,0.15); color: #34d399; }
+    .c-database  { border-left: 3px solid #a78bfa; }
+    .c-database .node-title { color: #a78bfa; }
+    .c-database .node-tag  { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .c-cloud     { border-left: 3px solid #fbbf24; }
+    .c-cloud .node-title { color: #fbbf24; }
+    .c-cloud .node-tag  { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    .c-security  { border-left: 3px solid #fb7185; }
+    .c-security .node-title { color: #fb7185; }
+    .c-security .node-tag  { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .c-bus       { border-left: 3px solid #fb923c; }
+    .c-bus .node-title { color: #fb923c; }
+    .c-bus .node-tag  { background: rgba(251,146,60,0.15); color: #fb923c; }
+    .c-external  { border-left: 3px solid #94a3b8; }
+    .c-external .node-title { color: #94a3b8; }
+    .c-external .node-tag  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 320px; flex-shrink: 0;
+      background: #0f172a;
+      border-left: 1px solid #1e293b;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      z-index: 50;
+    }
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid #1e293b;
+      flex-shrink: 0;
+    }
+    .sidebar-tab {
+      flex: 1; padding: 10px; text-align: center;
+      font-size: 0.75rem; font-weight: 600;
+      color: #64748b; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-tab:hover { color: #94a3b8; background: rgba(255,255,255,0.03); }
+    .sidebar-tab.active { color: #22d3ee; border-bottom-color: #22d3ee; }
+    .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+    .sidebar-section { margin-bottom: 16px; }
+    .sidebar-section h3 {
+      font-size: 0.72rem; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #475569;
+      margin-bottom: 8px;
+    }
+    .comment-item {
+      background: rgba(30,41,59,0.4);
+      border-radius: 6px; padding: 8px 10px;
+      margin-bottom: 6px; border-left: 2px solid #334155;
+    }
+    .comment-item .comment-author {
+      font-size: 0.68rem; color: #64748b; margin-bottom: 3px;
+    }
+    .comment-item .comment-text {
+      font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;
+    }
+    .comment-item .comment-time {
+      font-size: 0.6rem; color: #475569; margin-top: 3px;
+    }
+    .comment-form { display: flex; gap: 6px; margin-top: 8px; }
+    .comment-form textarea {
+      flex: 1; background: rgba(15,23,42,0.8);
+      border: 1px solid #334155; border-radius: 6px;
+      color: #e2e8f0; padding: 8px; font-family: inherit;
+      font-size: 0.75rem; resize: none; height: 60px;
+    }
+    .comment-form textarea:focus { outline: none; border-color: #22d3ee; }
+    .comment-form button {
+      background: rgba(34,211,238,0.15); border: 1px solid #22d3ee;
+      color: #22d3ee; padding: 6px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 0.72rem; cursor: pointer;
+    }
+    .connection-mode {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.95); border: 1px solid #fbbf24;
+      border-radius: 8px; padding: 6px 14px;
+      font-size: 0.75rem; color: #fbbf24; z-index: 200;
+      display: none; pointer-events: none;
+    }
+    .connection-mode.active { display: block; }
+    .minimap {
+      position: absolute; bottom: 12px; right: 12px;
+      width: 200px; height: 130px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid #334155; border-radius: 8px;
+      overflow: hidden; z-index: 50;
+    }
+    .minimap canvas { width: 100%; height: 100%; }
+    .props-panel { display: none; }
+    .props-panel.visible { display: block; }
+    .props-row {
+      display: flex; justify-content: space-between;
+      padding: 4px 0; font-size: 0.72rem;
+      border-bottom: 1px solid rgba(30,41,59,0.5);
+    }
+    .props-row .label { color: #64748b; }
+    .props-row .value { color: #cbd5e1; }
+    .props-row input {
+      background: rgba(15,23,42,0.8); border: 1px solid #334155;
+      color: #e2e8f0; padding: 3px 6px; border-radius: 4px;
+      font-family: inherit; font-size: 0.72rem; width: 120px;
+    }
+    .props-row input:focus { outline: none; border-color: #22d3ee; }
+    .tooltip {
+      position: fixed; background: rgba(15,23,42,0.95);
+      border: 1px solid #334155; border-radius: 6px;
+      padding: 6px 10px; font-size: 0.7rem;
+      color: #94a3b8; pointer-events: none;
+      max-width: 200px; z-index: 1000;
+      display: none;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="pulse-dot"></div>
+    <div>
+      <h1>Agentic Harness — Interactive Architecture</h1>
+      <div class="subtitle">Drag nodes · Edit text · Add comments · Auto-saved to localStorage</div>
+    </div>
+  </div>
+  <div class="zoom-controls">
+    <button onclick="zoomOut()" title="Zoom out (−)">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button onclick="zoomIn()" title="Zoom in (+)">+</button>
+    <button onclick="resetZoom()" title="Reset zoom">1:1</button>
+  </div>
+  <div class="topbar-actions">
+    <button onclick="addNode()">+ Node</button>
+    <button onclick="toggleConnectionMode()">⊕ Connection</button>
+    <button onclick="addComment()">💬 Comment</button>
+    <button onclick="exportDiagram()">📥 Export</button>
+    <button onclick="importDiagram()">📤 Import</button>
+    <button class="primary" onclick="resetView()">↺ Reset View</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="canvas-wrapper" id="canvasWrapper">
+    <svg class="connections-svg" id="connectionsSvg">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+        </marker>
+        <marker id="arrowhead-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+        </marker>
+      </defs>
+    </svg>
+    <div class="canvas" id="canvas"></div>
+    <div class="connection-mode" id="connectionMode">Click a source node, then a target node</div>
+    <div class="minimap"><canvas id="minimapCanvas"></canvas></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="comments">Comments</div>
+      <div class="sidebar-tab" data-tab="properties">Properties</div>
+      <div class="sidebar-tab" data-tab="legend">Legend</div>
+      <div class="sidebar-tab" data-tab="help">Help</div>
+    </div>
+    <div class="sidebar-content" id="sidebarContent">
+      <div class="sidebar-section" id="tab-comments">
+        <h3>Thread Comments <span id="commentCount" style="color:#22d3ee;font-weight:700"></span></h3>
+        <div id="commentsList"></div>
+        <div class="comment-form">
+          <textarea id="commentInput" placeholder="Add a comment... (supports Markdown)"></textarea>
+          <button onclick="submitComment()">Post</button>
+        </div>
+      </div>
+      <div class="sidebar-section props-panel" id="tab-properties">
+        <h3>Selected Node Properties</h3>
+        <div id="propertiesBody"></div>
+      </div>
+      <div class="sidebar-section" id="tab-legend">
+        <h3>Node Color Legend</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          <span style="color:#22d3ee">● Cyan</span> — Frontend / I/O<br>
+          <span style="color:#34d399">● Emerald</span> — Processing<br>
+          <span style="color:#a78bfa">● Violet</span> — Storage / Memory<br>
+          <span style="color:#fbbf24">● Amber</span> — Orchestration / ML<br>
+          <span style="color:#fb7185">● Rose</span> — Safety / Classification<br>
+          <span style="color:#94a3b8">● Slate</span> — External / User<br>
+        </div>
+        <h3 style="margin-top:14px">Zones</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          Zone 1 — Intake & Onboarding<br>
+          Zone 2 — Intent Understanding<br>
+          Zone 3 — Information Collection<br>
+          Zone 4 — Resource Search<br>
+          Zone 5 — Response Generation<br>
+          Zone 6 — Memory & Learning
+        </div>
+      </div>
+      <div class="sidebar-section" id="tab-help">
+        <h3>Keyboard & Mouse</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          <strong>Click</strong> a node to select<br>
+          <strong>Drag</strong> a node to reposition<br>
+          <strong>Double-click</strong> to edit text<br>
+          <strong>Delete</strong> to remove selected node<br>
+          <strong>Escape</strong> to deselect / cancel<br>
+          <strong>Ctrl+S</strong> to save state<br>
+          <strong>Scroll wheel</strong> to zoom<br>
+          <strong>Right-drag</strong> to pan canvas<br>
+          <strong>P</strong> toggle connection mode<br>
+          <strong>Ctrl+Z</strong> undo
+        </div>
+        <h3 style="margin-top:14px">Features</h3>
+        <div style="font-size:0.72rem;color:#94a3b8;line-height:2">
+          All changes auto-save to<br>browser localStorage.<br>
+          Import/Export as JSON.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA MODEL
+// ═══════════════════════════════════════════════════════════
+const STORAGE_KEY = 'agentic_harness_diagram_v3';
+
+// Default nodes — spread out with generous spacing
+const DEFAULT_NODES = [
+  // Zone 0: User Channels
+  { id:'user', title:'User Channels', sub:'CLI · Chat · Voice\n(multi-modal input)', color:'external', x:400, y:20, zone:0 },
+
+  // Zone 1: Intake & Onboarding
+  { id:'normalizer', title:'Input Normalizer', sub:'sanitize · tokenize · lang-detect', color:'frontend', x:100, y:160, zone:1 },
+  { id:'session', title:'Session Manager', sub:'session-id · context-window · history', color:'frontend', x:360, y:160, zone:1 },
+  { id:'onboarding', title:'Onboarding\nOrchestrator', sub:'new-user → profile wizard\nreturning → resume context', color:'cloud', x:640, y:150, zone:1 },
+  { id:'profile', title:'Profile Builder', sub:'preference extraction\n· demographics', color:'frontend', x:900, y:160, zone:1 },
+  { id:'profileStore', title:'User Profile\nStore', sub:'PostgreSQL · vector embeddings\nprefs · history · metadata', color:'database', x:1120, y:140, zone:1 },
+
+  // Zone 2: Intent Understanding
+  { id:'classifier', title:'Intent Classifier', sub:'fine-tuned LLM · DSPy program\ncategories · confidence scores', color:'security', x:100, y:360, zone:2 },
+  { id:'ner', title:'Entity Extractor', sub:'NER · structured fields · slots\nneeds · goals · constraints', color:'security', x:360, y:360, zone:2 },
+  { id:'enricher', title:'Context Enricher', sub:'user-profile lookup · session history\npast queries · learned preferences', color:'backend', x:640, y:360, zone:2 },
+  { id:'dspy', title:'DSPy Reasoning\nEngine', sub:'signatures · teleprompters · optimizers\nmulti-step · chain-of-thought\nself-improving via compile()', color:'cloud', x:900, y:350, zone:2 },
+  { id:'router', title:'Intent Router', sub:'question · task · chitchat\nsearch · create · clarify', color:'security', x:1120, y:360, zone:2 },
+
+  // Zone 3: Information Collection
+  { id:'wants', title:'Wants Discovery', sub:'guided questions · active listening\nimplicit signal detection', color:'frontend', x:100, y:560, zone:3 },
+  { id:'clarify', title:'Clarification\nLoop', sub:'ambiguity resolver · follow-up prompts\nmulti-turn confirmation', color:'frontend', x:360, y:560, zone:3 },
+  { id:'accumulator', title:'Signal\nAccumulator', sub:'preference vector · topic clusters\nconfidence scores · decay tracking', color:'backend', x:640, y:560, zone:3 },
+
+  // Zone 4: Resource Search & Retrieval
+  { id:'planner', title:'Query Planner', sub:'decompose · rephrase · route', color:'frontend', x:60, y:750, zone:4 },
+  { id:'vector', title:'Vector Search\nEngine', sub:'embedding index · similarity top-k\nuser memory · doc corpus', color:'database', x:300, y:750, zone:4 },
+  { id:'tools', title:'Web / API\nTool Caller', sub:'MCP tools · HTTP · arXiv · Polymarket\nblog watcher · public-domain books', color:'cloud', x:560, y:750, zone:4 },
+  { id:'kgraph', title:'Knowledge\nGraph', sub:'LLM Wiki · extracted entities\nrelation triples · concept map', color:'database', x:820, y:750, zone:4 },
+  { id:'reranker', title:'RAG Re-Ranker', sub:'cross-encoder · MMR · hybrid search\ndiversity · relevance fusion', color:'backend', x:1070, y:750, zone:4 },
+
+  // Zone 5: Response Generation
+  { id:'generator', title:'LLM Generator', sub:'deepseek-v4 / ring-2.6-1t\nsystem prompt · RAG context · schema', color:'backend', x:100, y:920, zone:5 },
+  { id:'safety', title:'Safety &\nGuardrails', sub:'content filter · PII scrub\noutput validation · redact', color:'security', x:360, y:920, zone:5 },
+  { id:'formatter', title:'Response\nFormatter', sub:'structured · markdown · voice-ready\nmultimodal rendering', color:'frontend', x:640, y:920, zone:5 },
+  { id:'humanizer', title:'Humanizer', sub:'strip AI-isms · natural voice\ntone matching · user-style adapt', color:'frontend', x:900, y:920, zone:5 },
+  { id:'evaluator', title:'Evaluator', sub:'reward model · self-critique\nlm-eval-harness · W&B logs', color:'backend', x:1120, y:920, zone:5 },
+
+  // Zone 6: Memory & Learning
+  { id:'stMemory', title:'Short-Term\nMemory', sub:'conversation buffer\nrolling window', color:'database', x:100, y:1100, zone:6 },
+  { id:'ltMemory', title:'Long-Term\nMemory', sub:'PostgreSQL · vector store\nmem-graph', color:'database', x:360, y:1100, zone:6 },
+  { id:'learner', title:'Preference\nLearner', sub:'implicit signals · feedback loop', color:'cloud', x:640, y:1100, zone:6 },
+  { id:'optimizer', title:'DSPy\nOptimizer', sub:'MIPRO · signature selection', color:'cloud', x:900, y:1100, zone:6 },
+  { id:'feedback', title:'Feedback\nCollector', sub:'thumbs · corrections · ratings', color:'frontend', x:1120, y:1100, zone:6 },
+];
+
+const DEFAULT_CONNECTIONS = [
+  // Z0→Z1
+  { from:'user', to:'normalizer', label:'raw input' },
+  // Z1 internal
+  { from:'normalizer', to:'session', label:'context' },
+  { from:'session', to:'onboarding', label:'state' },
+  { from:'onboarding', to:'profile', label:'prefs' },
+  { from:'profile', to:'profileStore', label:'store' },
+  { from:'onboarding', to:'classifier', label:'returning\n(shortcut)', dashed:true },
+  // Z1→Z2
+  { from:'normalizer', to:'classifier', label:'normalized' },
+  { from:'session', to:'enricher', label:'session ctx' },
+  { from:'profileStore', to:'enricher', label:'user profile' },
+  // Z2 internal
+  { from:'classifier', to:'router', label:'intent' },
+  { from:'classifier', to:'ner', label:'entities' },
+  { from:'ner', to:'enricher', label:'' },
+  { from:'enricher', to:'dspy', label:'rich ctx' },
+  { from:'dspy', to:'router', label:'reasoned\nintent' },
+  // Z2→Z3
+  { from:'classifier', to:'wants', label:'needs' },
+  { from:'router', to:'clarify', label:'clarify?' },
+  { from:'wants', to:'clarify', label:'refine' },
+  { from:'clarify', to:'accumulator', label:'confirmed' },
+  // Z3→Z4
+  { from:'wants', to:'planner', label:'query' },
+  { from:'accumulator', to:'planner', label:'pref\nquery' },
+  { from:'planner', to:'vector', label:'vec query' },
+  { from:'planner', to:'tools', label:'web\nlookup' },
+  { from:'planner', to:'kgraph', label:'knowledge' },
+  { from:'vector', to:'reranker', label:'hits' },
+  { from:'tools', to:'reranker', label:'results' },
+  { from:'kgraph', to:'reranker', label:'matches' },
+  // Z4→Z5
+  { from:'reranker', to:'generator', label:'context' },
+  { from:'generator', to:'safety', label:'draft' },
+  { from:'safety', to:'formatter', label:'safe' },
+  { from:'formatter', to:'humanizer', label:'' },
+  { from:'humanizer', to:'evaluator', label:'response' },
+  // Z5→Z6
+  { from:'evaluator', to:'stMemory', label:'record' },
+  { from:'evaluator', to:'optimizer', label:'reward' },
+  { from:'user', to:'humanizer', label:'feedback', dashed:true },
+  // Z6 internal
+  { from:'stMemory', to:'ltMemory', label:'persist' },
+  { from:'feedback', to:'learner', label:'signals' },
+  { from:'learner', to:'ltMemory', label:'update' },
+  { from:'optimizer', to:'dspy', label:'better\nprompts', dashed:true },
+  // Cross-store
+  { from:'ltMemory', to:'profileStore', label:'enrich', dashed:true },
+];
+
+let nodes = [];
+let connections = [];
+let selectedId = null;
+let draggingId = null;
+let dragOffX = 0, dragOffY = 0;
+let panX = 0, panY = 0;
+let zoom = 1;
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let connMode = false;
+let connSource = null;
+let connMouseX = 0, connMouseY = 0;
+let nextId = 1000;
+let comments = [];
+let undoStack = [];
+
+// ═══════════════════════════════════════════════════════════
+// COLOR MAP
+// ═══════════════════════════════════════════════════════════
+const COLORS = {
+  frontend: { border:'#22d3ee', bg:'rgba(8,51,68,0.4)', text:'#22d3ee', label:'#Cyan' },
+  backend:  { border:'#34d399', bg:'rgba(6,78,59,0.4)', text:'#34d399', label:'#Emerald' },
+  database: { border:'#a78bfa', bg:'rgba(76,29,149,0.4)', text:'#a78bfa', label:'#Violet' },
+  cloud:    { border:'#fbbf24', bg:'rgba(120,53,15,0.35)', text:'#fbbf24', label:'#Amber' },
+  security: { border:'#fb7185', bg:'rgba(136,19,55,0.35)', text:'#fb7185', label:'#Rose' },
+  bus:      { border:'#fb923c', bg:'rgba(251,146,60,0.25)', text:'#fb923c', label:'#Orange' },
+  external: { border:'#94a3b8', bg:'rgba(30,41,59,0.6)', text:'#94a3b8', label:'#Slate' },
+};
+
+const ZONE_COLORS = [
+  'rgba(251,146,60,0.04)',
+  'rgba(251,191,36,0.05)',
+  'rgba(251,113,133,0.05)',
+  'rgba(52,211,153,0.05)',
+  'rgba(34,211,238,0.05)',
+  'rgba(167,139,250,0.05)',
+  'rgba(30,41,59,0.06)',
+];
+const ZONE_LABELS = {
+  0:'ZONE 0 · USER CHANNELS',
+  1:'ZONE 1 · INTAKE & ONBOARDING',
+  2:'ZONE 2 · INTENT UNDERSTANDING',
+  3:'ZONE 3 · INFORMATION COLLECTION',
+  4:'ZONE 4 · RESOURCE SEARCH & RETRIEVAL',
+  5:'ZONE 5 · RESPONSE GENERATION',
+  6:'ZONE 6 · MEMORY & LEARNING',
+};
+
+// ═══════════════════════════════════════════════════════════
+// COORDINATE HELPERS
+// ═══════════════════════════════════════════════════════════
+
+/** Convert world (logical) coords to screen pixel coords */
+function worldToScreen(wx, wy) {
+  return { x: wx * zoom + panX, y: wy * zoom + panY };
+}
+
+/** Convert screen pixel coords to world coords */
+function screenToWorld(sx, sy) {
+  return { x: (sx - panX) / zoom, y: (sy - panY) / zoom };
+}
+
+/** Get a node's screen position */
+function nodeScreenPos(n) {
+  return worldToScreen(n.x, n.y);
+}
+
+/** Get a node's actual DOM pixel size (accounting for zoom) */
+function nodeScreenSize(n) {
+  return { w: (n.w || 160) * zoom, h: (n.h || 70) * zoom };
+}
+
+// ═══════════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+
+function save() {
+  const data = { nodes, connections, comments, nextId, panX, panY, zoom };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) { console.error('Save error:', e); }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    nodes = d.nodes || [];
+    connections = d.connections || [];
+    comments = d.comments || [];
+    nextId = d.nextId || 1000;
+    panX = d.panX || 0;
+    panY = d.panY || 0;
+    zoom = d.zoom || 1;
+    return true;
+  } catch(e) { console.error('Load error:', e); }
+  return false;
+}
+
+function exportDiagram() {
+  save();
+  const blob = new Blob([JSON.stringify({ nodes, connections, comments, nextId }, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'agentic-harness-diagram.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Exported');
+}
+
+function importDiagram() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const d = JSON.parse(r.result);
+        if (d.nodes && d.connections) {
+          nodes = d.nodes; connections = d.connections;
+          comments = d.comments || [];
+          nextId = d.nextId || 1000;
+          panX = d.panX || 0; panY = d.panY || 0; zoom = d.zoom || 1;
+          save(); render(); renderComments(); updateZoomLabel();
+          showToast('Imported');
+        } else showToast('Invalid file', 'error');
+      } catch(e) { showToast('Parse error', 'error'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ZOOM
+// ═══════════════════════════════════════════════════════════
+
+function zoomIn() { setZoom(zoom * 1.2); }
+function zoomOut() { setZoom(zoom / 1.2); }
+function resetZoom() { setZoom(1); }
+
+function setZoom(newZoom, cx, cy) {
+  // cx, cy = zoom center in screen pixels (defaults to center of wrapper)
+  const wrapper = document.getElementById('canvasWrapper');
+  if (cx === undefined) cx = wrapper.clientWidth / 2;
+  if (cy === undefined) cy = wrapper.clientHeight / 2;
+
+  const oldZoom = zoom;
+  zoom = Math.max(0.15, Math.min(5, newZoom));
+
+  // Adjust pan so the point under (cx, cy) stays fixed
+  panX = cx - (cx - panX) * (zoom / oldZoom);
+  panY = cy - (cy - panY) * (zoom / oldZoom);
+
+  updateZoomLabel();
+  applyTransform();
+  renderConnections();
+  renderMinimap();
+  save();
+}
+
+function zoomFromWheel(e) {
+  e.preventDefault();
+  const rect = document.getElementById('canvasWrapper').getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  setZoom(zoom * factor, mx, my);
+}
+
+function updateZoomLabel() {
+  document.getElementById('zoomLabel').textContent = Math.round(zoom * 100) + '%';
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRANSFORM
+// ═══════════════════════════════════════════════════════════
+
+function applyTransform() {
+  const canvas = document.getElementById('canvas');
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+}
+
+function resetView() {
+  panX = 40; panY = 20; zoom = 1;
+  applyTransform();
+  renderConnections();
+  renderMinimap();
+  updateZoomLabel();
+  save();
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+
+function measureNode(n) {
+  const el = document.getElementById('node-' + n.id);
+  if (el) { n.w = el.offsetWidth; n.h = el.offsetHeight; }
+  else { n.w = 160; n.h = 70; }
+}
+
+function render() {
+  const canvas = document.getElementById('canvas');
+  canvas.querySelectorAll('.node').forEach(el => el.remove());
+  canvas.querySelectorAll('.zone-bg').forEach(el => el.remove());
+  canvas.querySelectorAll('.zone-label').forEach(el => el.remove());
+
+  // Render zone backgrounds
+  const zoneGroups = {};
+  nodes.forEach(n => {
+    if (n.zone == null) return;
+    if (!zoneGroups[n.zone]) zoneGroups[n.zone] = [];
+    zoneGroups[n.zone].push(n);
+  });
+
+  Object.entries(zoneGroups).forEach(([zone, group]) => {
+    const pad = 24; // extra padding around zone nodes
+    const minX = Math.min(...group.map(n => n.x)) - pad;
+    const minY = Math.min(...group.map(n => n.y)) - pad;
+    const maxX = Math.max(...group.map(n => n.x + (n.w || 160))) + pad;
+    const maxY = Math.max(...group.map(n => n.y + (n.h || 70))) + pad;
+
+    const bg = document.createElement('div');
+    bg.className = 'zone-bg';
+    bg.style.cssText = `
+      position:absolute; left:${minX}px; top:${minY}px;
+      width:${maxX-minX}px; height:${maxY-minY}px;
+      background:${ZONE_COLORS[zone]||'rgba(30,41,59,0.03)'};
+      border:1px dashed ${COLORS.external.border}22;
+      border-radius:12px; pointer-events:none; z-index:0;
+    `;
+    canvas.appendChild(bg);
+
+    const label = document.createElement('div');
+    label.className = 'zone-label';
+    label.textContent = ZONE_LABELS[zone] || `Zone ${zone}`;
+    label.style.cssText = `
+      position:absolute; left:${minX+10}px; top:${minY+6}px;
+      font-size:0.65rem; color:${COLORS.external.border};
+      font-weight:600; letter-spacing:0.08em;
+      pointer-events:none; z-index:0;
+      text-transform:uppercase;
+    `;
+    canvas.appendChild(label);
+  });
+
+  // Render nodes at world positions (transform handles screen mapping)
+  nodes.forEach(n => {
+    const div = document.createElement('div');
+    div.className = `node c-${n.color}${n.fixed ? ' node-fixed' : ''}`;
+    div.id = 'node-' + n.id;
+    div.dataset.id = n.id;
+    div.style.left = n.x + 'px';
+    div.style.top = n.y + 'px';
+
+    const color = COLORS[n.color] || COLORS.external;
+    const subLines = (n.sub||'').split('\n').map(s => `<span>${escapeHtml(s)}</span>`).join('<br>');
+
+    div.innerHTML = `
+      <div class="node-zone-badge" style="color:${color.text}">Z${n.zone != null ? n.zone : ''}</div>
+      <div class="node-title" contenteditable="false">${escapeHtml(n.title)}</div>
+      <div class="node-sub">${subLines}</div>
+      ${n.fixed ? '' : `<span class="node-tag" style="background:${color.bg};color:${color.text}">${color.label}</span>`}
+      ${n.fixed ? '' : `<div class="resize-handle"></div>`}
+    `;
+
+    setupNodeEvents(div);
+    canvas.appendChild(div);
+    measureNode(n);
+  });
+
+  applyTransform();
+  renderConnections();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONNECTIONS (SVG)
+// ═══════════════════════════════════════════════════════════
+
+function renderConnections() {
+  const svg = document.getElementById('connectionsSvg');
+  const wrapper = document.getElementById('canvasWrapper');
+  const wRect = wrapper.getBoundingClientRect();
+
+  let html = '';
+
+  // Re-create markers each time in case of zoom changes
+  html += '<defs>';
+  html += `<marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#64748b" />
+  </marker>`;
+  html += `<marker id="arrowhead-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+  </marker>`;
+  html += '</defs>';
+
+  connections.forEach((conn, idx) => {
+    const fromNode = document.getElementById('node-' + conn.from);
+    const toNode = document.getElementById('node-' + conn.to);
+    if (!fromNode || !toNode) return;
+
+    // getBoundingClientRect already accounts for CSS transforms (zoom+pan)
+    const r1 = fromNode.getBoundingClientRect();
+    const r2 = toNode.getBoundingClientRect();
+
+    const x1 = r1.left + r1.width/2 - wRect.left;
+    const y1 = r1.top + r1.height/2 - wRect.top;
+    const x2 = r2.left + r2.width/2 - wRect.left;
+    const y2 = r2.top + r2.height/2 - wRect.top;
+
+    // Shorten arrows so they stop at node borders
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+    const halfW1 = r1.width/2, halfH1 = r1.height/2;
+    const halfW2 = r2.width/2, halfH2 = r2.height/2;
+    const shrink1 = Math.min(halfW1, halfH1, 12) / dist;
+    const shrink2 = Math.min(halfW2, halfH2, 12) / dist;
+    const sx1 = x1 + dx * shrink1;
+    const sy1 = y1 + dy * shrink1;
+    const sx2 = x2 - dx * shrink2;
+    const sy2 = y2 - dy * shrink2;
+
+    // Curvature
+    const curve = Math.min(50, dist * 0.15);
+    const mx = (sx1+sx2)/2, my = (sy1+sy2)/2;
+    let cx, cy;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      cx = mx; cy = my + (dy > 0 ? curve : -curve);
+    } else {
+      cx = mx + (dx > 0 ? curve : -curve); cy = my;
+    }
+
+    const pathD = `M ${sx1} ${sy1} Q ${cx} ${cy} ${sx2} ${sy2}`;
+    const isDashed = conn.dashed;
+    const strokeColor = isDashed ? '#64748b' : '#475569';
+    html += `<path d="${pathD}" stroke="${strokeColor}" stroke-width="1.5" fill="none" ${isDashed ? 'stroke-dasharray="6,4"' : ''} marker-end="url(#arrowhead${isDashed?'-dashed':''})" data-idx="${idx}" />`;
+
+    // Label along the curve
+    if (conn.label) {
+      const lines = conn.label.split('\n');
+      // Position label at midpoint of straight line between midpoints
+      const lx = (sx1+sx2)/2, ly = (sy1+sy2)/2;
+      lines.forEach((line, li) => {
+        html += `<text x="${lx}" y="${ly + li*10 - (lines.length-1)*4}" fill="#64748b" font-size="7.5" text-anchor="middle">${escapeHtml(line)}</text>`;
+      });
+    }
+  });
+
+  // Connection mode guiding line
+  if (connMode && connSource) {
+    const srcNode = document.getElementById('node-' + connSource);
+    if (srcNode) {
+      const sr = srcNode.getBoundingClientRect();
+      const px = sr.left + sr.width/2 - wRect.left;
+      const py = sr.top + sr.height/2 - wRect.top;
+      html += `<path d="M ${px} ${py} L ${connMouseX} ${connMouseY}" stroke="#22d3ee" stroke-width="2" stroke-dasharray="5,5" fill="none" marker-end="url(#arrowhead-dashed)" />`;
+    }
+  }
+
+  svg.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// NODE EVENTS
+// ═══════════════════════════════════════════════════════════
+
+function setupNodeEvents(el) {
+  const nodeId = el.dataset.id;
+
+  // Select + start drag (left mouse)
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.resize-handle')) return;
+    if (e.target.getAttribute('contenteditable') === 'true') return;
+    if (e.button !== 0) return;
+
+    if (connMode) {
+      if (!connSource) {
+        connSource = nodeId;
+        showToast(`Source: ${getNodeById(nodeId).title}`);
+      } else if (connSource !== nodeId) {
+        connections.push({ from: connSource, to: nodeId, label:'', dashed:false });
+        connSource = null; connMode = false;
+        document.getElementById('connectionMode').classList.remove('active');
+        renderConnections(); save();
+        showToast(`Connection created`);
+      }
+      return;
+    }
+
+    selectNode(nodeId);
+
+    const n = getNodeById(nodeId);
+    const pos = nodeScreenPos(n);
+    const wr = document.getElementById('canvasWrapper').getBoundingClientRect();
+    dragOffX = e.clientX - wr.left - pos.x;
+    dragOffY = e.clientY - wr.top - pos.y;
+    draggingId = nodeId;
+    el.classList.add('dragging');
+    pushUndo();
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  // Double-click to edit
+  el.addEventListener('dblclick', (e) => {
+    const titleEl = el.querySelector('.node-title');
+    if (titleEl) {
+      titleEl.contentEditable = 'true';
+      titleEl.focus();
+      selectText(titleEl);
+    }
+    e.stopPropagation();
+  });
+
+  // Save on focusout
+  el.addEventListener('focusout', (e) => {
+    if (e.target.classList.contains('node-title')) {
+      e.target.contentEditable = 'false';
+      const n = getNodeById(nodeId);
+      if (n) n.title = e.target.textContent.trim();
+      save();
+    }
+  });
+
+  // Resize handle
+  const handle = el.querySelector('.resize-handle');
+  if (handle) {
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      pushUndo();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = el.offsetWidth, startH = el.offsetHeight;
+      const onMove = (ev) => {
+        const dw = ev.clientX - startX, dh = ev.clientY - startY;
+        const n = getNodeById(nodeId);
+        if (!n) return;
+        n.w = Math.max(120, startW + dw / zoom);
+        n.h = Math.max(40, startH + dh / zoom);
+        el.style.width = n.w + 'px';
+        el.style.height = n.h + 'px';
+        renderConnections();
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        save();
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAN
+// ═══════════════════════════════════════════════════════════
+
+function setupCanvasEvents() {
+  const wrapper = document.getElementById('canvasWrapper');
+
+  wrapper.addEventListener('mousedown', (e) => {
+    // Right-click or middle-click to pan
+    if (e.button === 1 || e.button === 2 || (e.button === 0 && e.target === document.getElementById('canvas'))) {
+      isPanning = true;
+      panStart = { x: e.clientX - panX, y: e.clientY - panY };
+      document.getElementById('canvas').classList.add('dragging');
+      e.preventDefault();
+    }
+  });
+
+  wrapper.addEventListener('wheel', zoomFromWheel, { passive: false });
+
+  document.addEventListener('mousemove', (e) => {
+    // Dragging a node
+    if (draggingId) {
+      const n = getNodeById(draggingId);
+      const wr = wrapper.getBoundingClientRect();
+      const sx = e.clientX - wr.left;
+      const sy = e.clientY - wr.top;
+      const wp = screenToWorld(sx - dragOffX * zoom, sy - dragOffY * zoom);
+      n.x = Math.max(0, wp.x);
+      n.y = Math.max(0, wp.y);
+      const el = document.getElementById('node-' + draggingId);
+      if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+      renderConnections();
+      return;
+    }
+
+    // Panning
+    if (isPanning) {
+      panX = e.clientX - panStart.x;
+      panY = e.clientY - panStart.y;
+      applyTransform();
+      renderConnections();
+    }
+
+    // Connection mode guide line
+    if (connMode && connSource) {
+      connMouseX = e.clientX;
+      connMouseY = e.clientY;
+      renderConnections();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (draggingId) {
+      const el = document.getElementById('node-' + draggingId);
+      if (el) el.classList.remove('dragging');
+      draggingId = null;
+      save();
+    }
+    if (isPanning) {
+      isPanning = false;
+      document.getElementById('canvas').classList.remove('dragging');
+      save();
+    }
+  });
+
+  // Prevent context menu for panning
+  wrapper.addEventListener('contextmenu', e => {
+    if (e.target === document.getElementById('canvas') || e.target.classList.contains('node')) {
+      e.preventDefault();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// SELECTION, PROPS, DELETE, DUPLICATE
+// ═══════════════════════════════════════════════════════════
+
+function selectNode(id) {
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  selectedId = id;
+  const el = document.getElementById('node-' + id);
+  if (el) {
+    el.classList.add('selected');
+    showProperties(id);
+  }
+}
+
+function deselectAll() {
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  selectedId = null;
+  document.getElementById('tab-properties').classList.remove('visible');
+}
+
+function getNodeById(id) { return nodes.find(n => n.id === id); }
+
+function showProperties(id) {
+  const n = getNodeById(id); if (!n) return;
+  const panel = document.getElementById('tab-properties');
+  panel.classList.add('visible');
+  const body = document.getElementById('propertiesBody');
+  const connCount = connections.filter(c => c.from===id || c.to===id).length;
+  const out = connections.filter(c => c.from===id);
+  const inc = connections.filter(c => c.to===id);
+
+  body.innerHTML = `
+    <div class="props-row"><span class="label">ID</span><span class="value">${n.id}</span></div>
+    <div class="props-row"><span class="label">Title</span><span class="value"><input value="${escapeAttr(n.title)}" onchange="updateProp('${n.id}','title',this.value)"></span></div>
+    <div class="props-row"><span class="label">Zone</span><span class="value"><input type="number" value="${n.zone}" min="0" max="6" onchange="updateProp('${n.id}','zone',+this.value)"></span></div>
+    <div class="props-row"><span class="label">Color</span><span class="value">
+      <select onchange="updateProp('${n.id}','color',this.value)">
+        ${Object.keys(COLORS).map(c=>`<option value="${c}" ${n.color===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </span></div>
+    <div class="props-row"><span class="label">Subtitle</span><span class="value"><input value="${escapeAttr(n.sub||'')}" onchange="updateProp('${n.id}','sub',this.value)"></span></div>
+    <div class="props-row"><span class="label">Position</span><span class="value">${Math.round(n.x)}, ${Math.round(n.y)}</span></div>
+    <div class="props-row"><span class="label">Connections</span><span class="value">${connCount}</span></div>
+    <div class="props-row"><span class="label">Outgoing</span><span class="value">${out.map(c=>c.to).join(', ') || '—'}</span></div>
+    <div class="props-row"><span class="label">Incoming</span><span class="value">${inc.map(c=>c.from).join(', ') || '—'}</span></div>
+    <div style="margin-top:8px;display:flex;gap:6px;">
+      <button onclick="deleteNode('${n.id}')" style="flex:1;background:rgba(251,113,133,0.15);border-color:#fb7185;color:#fb7185;padding:6px;">Delete</button>
+      <button onclick="duplicateNode('${n.id}')" style="flex:1;">Duplicate</button>
+    </div>
+  `;
+}
+
+function updateProp(id, prop, value) {
+  const n = getNodeById(id); if (!n) return;
+  pushUndo();
+  n[prop] = value;
+  save(); render(); selectNode(id);
+}
+
+function deleteNode(id) {
+  pushUndo();
+  nodes = nodes.filter(n => n.id !== id);
+  connections = connections.filter(c => c.from !== id && c.to !== id);
+  save(); render(); deselectAll(); showToast('Deleted');
+}
+
+function duplicateNode(id) {
+  const orig = getNodeById(id); if (!orig) return;
+  pushUndo();
+  const nn = { ...orig, id:'node_'+(nextId++), title:orig.title+' (copy)', x:orig.x+40, y:orig.y+40 };
+  nodes.push(nn); save(); render(); selectNode(nn.id); showToast('Duplicated');
+}
+
+function addNode() {
+  pushUndo();
+  const nn = { id:'node_'+(nextId++), title:'New Node', sub:'Double-click to edit', color:'frontend', x:200+Math.random()*600, y:200+Math.random()*500, zone:null };
+  nodes.push(nn); save(); render(); selectNode(nn.id); showToast('New node added');
+}
+
+function toggleConnectionMode() {
+  connMode = !connMode;
+  connSource = null;
+  const el = document.getElementById('connectionMode');
+  el.textContent = connMode ? 'Click source node, then target node (Esc to cancel)' : '';
+  el.classList.toggle('active', connMode);
+  showToast(connMode ? 'Connection mode ON' : 'Connection mode OFF');
+}
+
+function undo() {
+  if (undoStack.length) {
+    const s = undoStack.pop();
+    nodes = s.nodes; connections = s.connections;
+    save(); render();
+    showToast('Undo');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMMENTS
+// ═══════════════════════════════════════════════════════════
+
+function submitComment() {
+  const input = document.getElementById('commentInput');
+  const text = input.value.trim(); if (!text) return;
+  comments.push({ author:'You', text, time: new Date().toLocaleString(), nodeId:selectedId });
+  input.value = ''; save(); renderComments(); showToast('Comment added');
+}
+
+function deleteComment(idx) { comments.splice(idx,1); save(); renderComments(); }
+
+function renderComments() {
+  const list = document.getElementById('commentsList');
+  document.getElementById('commentCount').textContent = `(${comments.length})`;
+  if (!comments.length) { list.innerHTML = '<div style="color:#475569;font-size:0.8rem;padding:8px;">No comments yet.</div>'; return; }
+  list.innerHTML = comments.map((c,i) => {
+    const tag = c.nodeId ? ` <span style="color:#22d3ee;font-size:0.65rem">→ ${escapeHtml(getNodeById(c.nodeId)?.title||c.nodeId)}</span>` : '';
+    return `<div class="comment-item" style="border-left-color:${c.nodeId?'#22d3ee':'#334155'}">
+      <div class="comment-author">${escapeHtml(c.author)}${tag}</div>
+      <div class="comment-text">${markdownToHtml(escapeHtml(c.text))}</div>
+      <div class="comment-time">${c.time} <button onclick="deleteComment(${i})" style="background:none;border:none;color:#fb7185;cursor:pointer;font-size:0.65rem;">✕</button></div></div>`;
+  }).reverse().join('');
+}
+
+function addComment() {
+  document.querySelectorAll('.sidebar-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('[data-tab="comments"]').classList.add('active');
+  document.querySelectorAll('.sidebar-section').forEach(s=>s.style.display='none');
+  document.getElementById('tab-comments').style.display='block';
+  document.getElementById('commentInput').focus();
+}
+
+// ═══════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════
+
+function renderMinimap() {
+  const mc = document.getElementById('minimapCanvas');
+  const ctx = mc.getContext('2d');
+  mc.width = 200; mc.height = 130;
+  ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,200,130);
+  if (!nodes.length) return;
+
+  const minX = Math.min(...nodes.map(n=>n.x)) - 40;
+  const minY = Math.min(...nodes.map(n=>n.y)) - 40;
+  const maxX = Math.max(...nodes.map(n=>n.x+(n.w||160))) + 40;
+  const maxY = Math.max(...nodes.map(n=>n.y+(n.h||70))) + 40;
+  const scaleX = 190/Math.max(maxX-minX+80,1);
+  const scaleY = 120/Math.max(maxY-minY+80,1);
+  const scale = Math.min(scaleX, scaleY);
+
+  nodes.forEach(n => {
+    const c = COLORS[n.color]||COLORS.external;
+    ctx.fillStyle = c.border+'88';
+    ctx.fillRect(5+(n.x-minX+10)*scale, 5+(n.y-minY+10)*scale, Math.max(4,(n.w||160)*scale), Math.max(3,(n.h||70)*scale));
+  });
+
+  // Viewport rect
+  const wrapper = document.getElementById('canvasWrapper');
+  const wr = wrapper.getBoundingClientRect();
+  const totalW = maxX-minX+80, totalH = maxY-minY+80;
+  const vpX = 5 + (-panX/totalW)*190;
+  const vpY = 5 + (-panY/totalH)*120;
+  const vpW = (wr.width/Math.abs(totalW*zoom))*190;
+  const vpH = (wr.height/Math.abs(totalH*zoom))*120;
+  ctx.strokeStyle='#22d3ee'; ctx.lineWidth=1.5;
+  ctx.strokeRect(Math.max(0,vpX), Math.max(0,vpY), Math.min(190-vpX,vpW), Math.min(130-vpY,vpH));
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escapeAttr(s){return s.replace(/"/g,'&quot;');}
+function markdownToHtml(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/`(.*?)`/g,'<code style="background:rgba(30,41,59,0.5);padding:1px 4px;border-radius:3px">$1</code>').replace(/\n/g,'<br>');}
+function selectText(el){const r=document.createRange();r.selectNodeContents(el);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}
+
+let toastEl = document.createElement('div');
+toastEl.id='toast';
+toastEl.style.cssText='display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:8px;color:#fff;font-size:0.8rem;font-family:JetBrains Mono,monospace;z-index:9999;transition:opacity 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
+document.body.appendChild(toastEl);
+
+let toastTimer;
+function showToast(msg, type='success') {
+  toastEl.textContent = msg;
+  toastEl.style.background = type==='error' ? 'rgba(251,113,133,0.9)' : 'rgba(34,211,238,0.9)';
+  toastEl.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.style.display='none', 2500);
+}
+
+// ═══════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.getAttribute('contenteditable')==='true') {
+    if (e.key==='Escape') e.target.blur();
+    return;
+  }
+  if (e.key==='Delete' && selectedId) deleteNode(selectedId);
+  if (e.key==='Escape') {
+    deselectAll();
+    if (connMode) { connMode=false; connSource=null; document.getElementById('connectionMode').classList.remove('active'); }
+  }
+  if (e.key==='p'||e.key==='P') toggleConnectionMode();
+  if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); }
+  if (e.ctrlKey && e.key==='s') { e.preventDefault(); save(); showToast('Saved'); }
+});
+
+// Tab switching
+document.querySelectorAll('.sidebar-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sidebar-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.sidebar-section').forEach(s=>s.style.display='none');
+    document.getElementById('tab-'+tab.dataset.tab).style.display='block';
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+
+(function init() {
+  if (!load()) {
+    nodes = JSON.parse(JSON.stringify(DEFAULT_NODES));
+    connections = JSON.parse(JSON.stringify(DEFAULT_CONNECTIONS));
+    panX = 40; panY = 20; zoom = 1;
+    save();
+  }
+  render();
+  renderComments();
+  setupCanvasEvents();
+  renderMinimap();
+  updateZoomLabel();
+  setInterval(()=>{save(); renderMinimap();}, 30000);
+})();
+</script>
+</body>
+</html>

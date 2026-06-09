@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agentic Harness — User Intelligence Engine</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1300px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+    .pulse-dot {
+      width: 12px; height: 12px;
+      background: #22d3ee; border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .tagline { color: #64748b; font-size: 0.75rem; margin-left: 1.75rem; margin-top: 0.25rem; }
+    .diagram-container {
+      background: rgba(15,23,42,0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 2rem;
+      overflow-x: auto;
+    }
+    svg { width: 100%; min-width: 1100px; display: block; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: rgba(15,23,42,0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan    { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet  { background: #a78bfa; }
+    .card-dot.amber   { background: #fbbf24; }
+    .card-dot.rose    { background: #fb7185; }
+    .card-dot.orange  { background: #fb923c; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.375rem; line-height: 1.4; }
+    .card li::before { content: "› "; color: #64748b; }
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: 0.75rem; }
+    .note-box {
+      margin-top: 1.5rem;
+      background: rgba(30,41,59,0.4);
+      border-left: 3px solid #22d3ee;
+      border-radius: 0 0.5rem 0.5rem 0;
+      padding: 1rem 1.25rem;
+      font-size: 0.8rem;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .note-box strong { color: #22d3ee; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>Agentic User Intelligence Harness</h1>
+    </div>
+    <p class="subtitle">Multi-layer agentic architecture for user onboarding, intent understanding, resource search, and adaptive response generation</p>
+    <p class="tagline">Hermes Agent · DSPy + RAG + Memory · Self-improving conversational loop</p>
+  </div>
+
+  <!-- Main Diagram -->
+  <div class="diagram-container">
+  <svg viewBox="0 0 1100 920">
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+      </marker>
+      <marker id="arrow-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+      </marker>
+      <marker id="arrow-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+      </marker>
+      <marker id="arrow-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+      </marker>
+      <marker id="arrow-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+      </marker>
+      <marker id="arrow-violet" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#a78bfa" />
+      </marker>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+      </pattern>
+    </defs>
+
+    <!-- Background Grid -->
+    <rect width="100%" height="100%" fill="url(#grid)" />
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 0: USER CHANNELS (External)
+         ═══════════════════════════════════════════════════════════ -->
+    <rect x="30" y="20" width="160" height="70" rx="8" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="110" y="44" fill="white" font-size="11" font-weight="700" text-anchor="middle">User Channels</text>
+    <text x="110" y="60" fill="#94a3b8" font-size="9" text-anchor="middle">CLI · Chat · Voice</text>
+    <text x="110" y="74" fill="#94a3b8" font-size="9" text-anchor="middle">(multi-modal input)</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 1: INTAKE & ONBOARDING LAYER
+         ═══════════════════════════════════════════════════════════ -->
+    <!-- Zone label -->
+    <text x="55" y="128" fill="#fb923c" font-size="9" font-weight="600">ZONE 1 · INTAKE &amp; ONBOARDING</text>
+
+    <!-- Input Normalizer -->
+    <rect x="30" y="145" width="160" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="110" y="165" fill="white" font-size="10" font-weight="600" text-anchor="middle">Input Normalizer</text>
+    <text x="110" y="180" fill="#94a3b8" font-size="8" text-anchor="middle">sanitize · tokenize · lang-detect</text>
+
+    <!-- Session Manager -->
+    <rect x="220" y="145" width="140" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="290" y="165" fill="white" font-size="10" font-weight="600" text-anchor="middle">Session Manager</text>
+    <text x="290" y="180" fill="#94a3b8" font-size="8" text-anchor="middle">session-id · context-window · history</text>
+
+    <!-- Onboarding Orchestrator -->
+    <rect x="400" y="140" width="170" height="70" rx="8" fill="rgba(120,53,15,0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="485" y="162" fill="white" font-size="10" font-weight="700" text-anchor="middle">Onboarding Orchestrator</text>
+    <text x="485" y="178" fill="#94a3b8" font-size="8" text-anchor="middle">new-user ? → profile wizard</text>
+    <text x="485" y="192" fill="#94a3b8" font-size="8" text-anchor="middle">returning ? → resume context</text>
+
+    <!-- Profile Builder -->
+    <rect x="610" y="145" width="140" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="680" y="165" fill="white" font-size="10" font-weight="600" text-anchor="middle">Profile Builder</text>
+    <text x="680" y="180" fill="#94a3b8" font-size="8" text-anchor="middle">preference extraction · demographics</text>
+
+    <!-- User Profile Store -->
+    <rect x="790" y="140" width="150" height="70" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="865" y="160" fill="white" font-size="10" font-weight="600" text-anchor="middle">User Profile Store</text>
+    <text x="865" y="176" fill="#94a3b8" font-size="8" text-anchor="middle">PostgreSQL · vector embeddings</text>
+    <text x="865" y="190" fill="#94a3b8" font-size="8" text-anchor="middle">prefs · history · metadata</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 2: INTENT UNDERSTANDING
+         ═══════════════════════════════════════════════════════════ -->
+    <text x="55" y="268" fill="#fb7185" font-size="9" font-weight="600">ZONE 2 · INTENT UNDERSTANDING</text>
+
+    <!-- Intent Classifier -->
+    <rect x="30" y="285" width="170" height="70" rx="8" fill="rgba(136,19,55,0.35)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="115" y="307" fill="white" font-size="10" font-weight="700" text-anchor="middle">Intent Classifier</text>
+    <text x="115" y="323" fill="#94a3b8" font-size="8" text-anchor="middle">fine-tuned LLM · DSPy program</text>
+    <text x="115" y="337" fill="#94a3b8" font-size="8" text-anchor="middle">categories · confidence scores</text>
+
+    <!-- Entity Extractor -->
+    <rect x="230" y="285" width="150" height="70" rx="8" fill="rgba(136,19,55,0.35)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="305" y="307" fill="white" font-size="10" font-weight="700" text-anchor="middle">Entity Extractor</text>
+    <text x="305" y="323" fill="#94a3b8" font-size="8" text-anchor="middle">NER · structured fields · slots</text>
+    <text x="305" y="337" fill="#94a3b8" font-size="8" text-anchor="middle">needs · goals · constraints</text>
+
+    <!-- Context Enricher -->
+    <rect x="420" y="285" width="150" height="70" rx="8" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="495" y="307" fill="white" font-size="10" font-weight="700" text-anchor="middle">Context Enricher</text>
+    <text x="495" y="323" fill="#94a3b8" font-size="8" text-anchor="middle">user-profile lookup · session history</text>
+    <text x="495" y="337" fill="#94a3b8" font-size="8" text-anchor="middle">past queries · learned preferences</text>
+
+    <!-- DSPy Reasoning Engine -->
+    <rect x="610" y="280" width="190" height="80" rx="8" fill="rgba(120,53,15,0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="705" y="304" fill="white" font-size="10" font-weight="700" text-anchor="middle">DSPy Reasoning Engine</text>
+    <text x="705" y="320" fill="#94a3b8" font-size="8" text-anchor="middle">signatures · teleprompters · optimizers</text>
+    <text x="705" y="336" fill="#94a3b8" font-size="8" text-anchor="middle">multi-step reasoning · chain-of-thought</text>
+    <text x="705" y="350" fill="#fbbf24" font-size="7" text-anchor="middle">self-improving via compile() feedback</text>
+
+    <!-- Intent Routing -->
+    <rect x="830" y="285" width="120" height="70" rx="8" fill="rgba(136,19,55,0.35)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="890" y="307" fill="white" font-size="10" font-weight="700" text-anchor="middle">Intent Router</text>
+    <text x="890" y="323" fill="#94a3b8" font-size="8" text-anchor="middle">question · task · chitchat</text>
+    <text x="890" y="337" fill="#94a3b8" font-size="8" text-anchor="middle">search · create · clarify</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 3: INFORMATION COLLECTION
+         ═══════════════════════════════════════════════════════════ -->
+    <text x="55" y="418" fill="#fb923c" font-size="9" font-weight="600">ZONE 3 · INFORMATION COLLECTION</text>
+
+    <!-- Wants Discovery -->
+    <rect x="30" y="435" width="150" height="70" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="105" y="457" fill="white" font-size="10" font-weight="700" text-anchor="middle">Wants Discovery</text>
+    <text x="105" y="473" fill="#94a3b8" font-size="8" text-anchor="middle">guided questions · active listening</text>
+    <text x="105" y="487" fill="#94a3b8" font-size="8" text-anchor="middle">implicit signal detection</text>
+
+    <!-- Clarification Loop -->
+    <rect x="210" y="435" width="150" height="70" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="285" y="457" fill="white" font-size="10" font-weight="700" text-anchor="middle">Clarification Loop</text>
+    <text x="285" y="473" fill="#94a3b8" font-size="8" text-anchor="middle">ambiguity resolver · follow-up prompts</text>
+    <text x="285" y="487" fill="#94a3b8" font-size="8" text-anchor="middle">multi-turn confirmation</text>
+
+    <!-- Signal Accumulator -->
+    <rect x="390" y="435" width="150" height="70" rx="8" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="465" y="457" fill="white" font-size="10" font-weight="700" text-anchor="middle">Signal Accumulator</text>
+    <text x="465" y="473" fill="#94a3b8" font-size="8" text-anchor="middle">preference vector · topic clusters</text>
+    <text x="465" y="487" fill="#94a3b8" font-size="8" text-anchor="middle">confidence scores · decay tracking</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 4: RESOURCE SEARCH & RETRIEVAL
+         ═══════════════════════════════════════════════════════════ -->
+    <text x="55" y="548" fill="#fb923c" font-size="9" font-weight="600">ZONE 4 · RESOURCE SEARCH &amp; RETRIEVAL</text>
+
+    <!-- Query Planner -->
+    <rect x="30" y="565" width="140" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="100" y="585" fill="white" font-size="10" font-weight="600" text-anchor="middle">Query Planner</text>
+    <text x="100" y="600" fill="#94a3b8" font-size="8" text-anchor="middle">decompose · rephrase · route</text>
+
+    <!-- Vector Search Engine -->
+    <rect x="200" y="560" width="160" height="70" rx="8" fill="rgba(76,29,149,0.35)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="280" y="582" fill="white" font-size="10" font-weight="700" text-anchor="middle">Vector Search Engine</text>
+    <text x="280" y="598" fill="#94a3b8" font-size="8" text-anchor="middle">embedding index · similarity top-k</text>
+    <text x="280" y="613" fill="#94a3b8" font-size="8" text-anchor="middle">user memory · doc corpus</text>
+
+    <!-- Web/APIs Tool Caller -->
+    <rect x="390" y="560" width="160" height="70" rx="8" fill="rgba(120,53,15,0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="470" y="582" fill="white" font-size="10" font-weight="700" text-anchor="middle">Web / API Tool Caller</text>
+    <text x="470" y="598" fill="#94a3b8" font-size="8" text-anchor="middle">MCP tools · HTTP · arXiv · Polymarket</text>
+    <text x="470" y="613" fill="#94a3b8" font-size="8" text-anchor="middle">blog watcher · public-domain books</text>
+
+    <!-- Knowledge Graph -->
+    <rect x="580" y="560" width="150" height="70" rx="8" fill="rgba(76,29,149,0.35)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="655" y="582" fill="white" font-size="10" font-weight="700" text-anchor="middle">Knowledge Graph</text>
+    <text x="655" y="598" fill="#94a3b8" font-size="8" text-anchor="middle">LLM Wiki · extracted entities</text>
+    <text x="655" y="613" fill="#94a3b8" font-size="8" text-anchor="middle">relation triples · concept map</text>
+
+    <!-- RAG Re-Ranker -->
+    <rect x="760" y="560" width="150" height="70" rx="8" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="835" y="582" fill="white" font-size="10" font-weight="700" text-anchor="middle">RAG Re-Ranker</text>
+    <text x="835" y="598" fill="#94a3b8" font-size="8" text-anchor="middle">cross-encoder · MMR · hybrid search</text>
+    <text x="835" y="613" fill="#94a3b8" font-size="8" text-anchor="middle">diversity · relevance fusion</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 5: RESPONSE GENERATION
+         ═══════════════════════════════════════════════════════════ -->
+    <text x="55" y="678" fill="#fb923c" font-size="9" font-weight="600">ZONE 5 · RESPONSE GENERATION &amp; FEEDBACK</text>
+
+    <!-- LLM Generator -->
+    <rect x="30" y="695" width="160" height="70" rx="8" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="110" y="717" fill="white" font-size="10" font-weight="700" text-anchor="middle">LLM Generator</text>
+    <text x="110" y="733" fill="#94a3b8" font-size="8" text-anchor="middle">deepseek-v4 / ring-2.6-1t</text>
+    <text x="110" y="747" fill="#94a3b8" font-size="8" text-anchor="middle">system prompt · RAG context · schema</text>
+
+    <!-- Safety & Guardrails -->
+    <rect x="220" y="695" width="140" height="70" rx="8" fill="rgba(136,19,55,0.35)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="290" y="717" fill="white" font-size="10" font-weight="700" text-anchor="middle">Safety &amp; Guardrails</text>
+    <text x="290" y="733" fill="#94a3b8" font-size="8" text-anchor="middle">content filter · PII scrub</text>
+    <text x="290" y="747" fill="#94a3b8" font-size="8" text-anchor="middle">output validation · redact</text>
+
+    <!-- Response Formatter -->
+    <rect x="390" y="695" width="150" height="70" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="465" y="717" fill="white" font-size="10" font-weight="700" text-anchor="middle">Response Formatter</text>
+    <text x="465" y="733" fill="#94a3b8" font-size="8" text-anchor="middle">structured · markdown · voice-ready</text>
+    <text x="465" y="747" fill="#94a3b8" font-size="8" text-anchor="middle">multimodal rendering</text>
+
+    <!-- Humanizer -->
+    <rect x="570" y="695" width="140" height="70" rx="8" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="640" y="717" fill="white" font-size="10" font-weight="600" text-anchor="middle">Humanizer</text>
+    <text x="640" y="733" fill="#94a3b8" font-size="8" text-anchor="middle">strip AI-isms · natural voice</text>
+    <text x="640" y="747" fill="#94a3b8" font-size="8" text-anchor="middle">tone matching · user-style adapt</text>
+
+    <!-- Evaluator -->
+    <rect x="740" y="695" width="140" height="70" rx="8" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="810" y="717" fill="white" font-size="10" font-weight="700" text-anchor="middle">Evaluator</text>
+    <text x="810" y="733" fill="#94a3b8" font-size="8" text-anchor="middle">reward model · self-critique</text>
+    <text x="810" y="747" fill="#94a3b8" font-size="8" text-anchor="middle">lm-eval-harness · W&B logs</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ZONE 6: MEMORY & LEARNING
+         ═══════════════════════════════════════════════════════════ -->
+    <text x="55" y="808" fill="#fb923c" font-size="9" font-weight="600">ZONE 6 · MEMORY &amp; CONTINUOUS LEARNING</text>
+
+    <!-- Short-Term Memory -->
+    <rect x="30" y="825" width="160" height="60" rx="6" fill="rgba(76,29,149,0.35)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="110" y="845" fill="white" font-size="10" font-weight="600" text-anchor="middle">Short-Term Memory</text>
+    <text x="110" y="862" fill="#94a3b8" font-size="8" text-anchor="middle">conversation buffer · rolling window</text>
+
+    <!-- Long-Term Memory -->
+    <rect x="220" y="825" width="160" height="60" rx="6" fill="rgba(76,29,149,0.35)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="300" y="845" fill="white" font-size="10" font-weight="600" text-anchor="middle">Long-Term Memory</text>
+    <text x="300" y="862" fill="#94a3b8" font-size="8" text-anchor="middle">PostgreSQL · vector store · mem-graph</text>
+
+    <!-- Preference Learner -->
+    <rect x="410" y="825" width="160" height="60" rx="6" fill="rgba(120,53,15,0.35)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="490" y="845" fill="white" font-size="10" font-weight="600" text-anchor="middle">Preference Learner</text>
+    <text x="490" y="862" fill="#94a3b8" font-size="8" text-anchor="middle">implicit signals · feedback loop</text>
+
+    <!-- DSPy Optimizer -->
+    <rect x="600" y="825" width="160" height="60" rx="6" fill="rgba(6,78,59,0.35)" stroke="#34d399" stroke-width="1.5"/>
+    <text x="680" y="845" fill="white" font-size="10" font-weight="600" text-anchor="middle">DSPy Optimizer</text>
+    <text x="680" y="862" fill="#94a3b8" font-size="8" text-anchor="middle">MIPRO · signature selection</text>
+
+    <!-- Feedback Collector -->
+    <rect x="790" y="825" width="160" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="870" y="845" fill="white" font-size="10" font-weight="600" text-anchor="middle">Feedback Collector</text>
+    <text x="870" y="862" fill="#94a3b8" font-size="8" text-anchor="middle">thumbs · corrections · ratings</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         ARROWS — FLOWS
+         ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Zone 0 → Zone 1: User input flows to intake -->
+    <line x1="110" y1="90" x2="110" y2="143" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+    <text x="120" y="112" fill="#22d3ee" font-size="8">raw input</text>
+
+    <!-- Input Normalizer → Session Manager -->
+    <line x1="190" y1="170" x2="218" y2="170" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+    <text x="205" y="163" fill="#94a3b8" font-size="7">context</text>
+
+    <!-- Session Manager → Onboarding Orchestrator -->
+    <line x1="360" y1="172" x2="398" y2="175" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+
+    <!-- Onboarding Orchestrator → Profile Builder -->
+    <line x1="570" y1="175" x2="608" y2="175" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+
+    <!-- Profile Builder → User Profile Store -->
+    <line x1="750" y1="175" x2="788" y2="175" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+
+    <!-- Onboarding Orchestrator (down) → Intent Classifier : repeat users skip to Z2 -->
+    <path d="M 485 212 L 485 240 Q 485 255 470 255 L 420 255 Q 405 255 405 270 L 405 283" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-amber)"/>
+    <text x="455" y="248" fill="#fbbf24" font-size="7">returning user</text>
+
+    <!-- Zone 1 → Zone 2: Normalized input to understanding -->
+    <line x1="110" y1="205" x2="110" y2="283" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+    <text x="120" y="248" fill="#94a3b8" font-size="7">normalized text</text>
+
+    <!-- Input Normalizer → Intent Classifier (direct) -->
+    <line x1="175" y1="205" x2="115" y2="283" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-cyan)"/>
+
+    <!-- Session Manager → Context Enricher -->
+    <line x1="360" y1="205" x2="495" y2="283" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-cyan)"/>
+    <text x="430" y="238" fill="#94a3b8" font-size="7">session ctx</text>
+
+    <!-- Profile Store → Context Enricher -->
+    <line x="865" y1="210" x2="495" y2="283" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-violet)"/>
+    <text x="680" y="230" fill="#a78bfa" font-size="7">user profile</text>
+
+    <!-- Zone 2 → Zone 3: Understanding drives collection -->
+    <line x1="115" y1="355" x2="115" y2="433" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrow-rose)"/>
+    <text x="125" y="400" fill="#fb7185" font-size="7">intent signals</text>
+
+    <!-- Intent Classifier → Wants Discovery -->
+    <line x1="155" y1="355" x2="105" y2="433" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-rose)"/>
+
+    <!-- Intent Router → Clarification Loop -->
+    <line x1="890" y1="355" x2="285" y2="433" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-rose)"/>
+    <text x="590" y="385" fill="#fb7185" font-size="7">needs clarification?</text>
+
+    <!-- Intent Classifier → Intent Router -->
+    <line x1="200" y1="320" x2="830" y2="320" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-rose)"/>
+    <text x="515" y="313" fill="#fb7185" font-size="7">classified intent</text>
+
+    <!-- Zone 3 → Zone 4: Collected info feeds search -->
+    <line x1="105" y1="505" x2="105" y2="563" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+    <text x="115" y="538" fill="#94a3b8" font-size="7">refined query</text>
+
+    <!-- Signal Accumulator → Query Planner -->
+    <line x1="465" y1="505" x2="230" y2="563" stroke="#34d399" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-emerald)"/>
+    <text x="350" y="530" fill="#34d399" font-size="7">preference-aware query</text>
+
+    <!-- Query Planner → Vector Search -->
+    <line x1="170" y1="595" x2="198" y2="595" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+
+    <!-- Query Planner → Web/APIs -->
+    <line x1="230" y1="610" x2="395" y2="610" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-cyan)"/>
+    <text x="315" y="603" fill="#94a3b8" font-size="7">web lookup</text>
+
+    <!-- Query Planner → Knowledge Graph -->
+    <line x1="280" y1="563" x2="655" y2="563" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-violet)"/>
+    <text x="470" y="556" fill="#a78bfa" font-size="7">knowledge lookup</text>
+
+    <!-- Vector Search Web/APIs KG → RAG Re-Ranker -->
+    <line x1="360" y1="610" x2="765" y2="595" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+    <text x="565" y="588" fill="#34d399" font-size="7">reranked results</text>
+
+    <!-- RAG Re-Ranker → LLM Generator -->
+    <line x1="835" y1="630" x2="350" y2="693" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+    <text x="600" y="655" fill="#a78bfa" font-size="7">retrieved context</text>
+
+    <!-- Zone 4 → Zone 5: Search results feed generation -->
+    <line x1="350" y1="630" x2="110" y2="693" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+    <text x="235" y="655" fill="#34d399" font-size="7">context bundle</text>
+
+    <!-- LLM Generator → Safety -->
+    <line x1="190" y1="730" x2="218" y2="730" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrow-rose)"/>
+    <text x="205" y="723" fill="#fb7185" font-size="7">safety check</text>
+
+    <!-- Safety → Response Formatter -->
+    <line x1="360" y1="730" x2="388" y2="730" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+
+    <!-- Response Formatter → Humanizer -->
+    <line x1="540" y1="730" x2="568" y2="730" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+
+    <!-- Humanizer → Evaluator -->
+    <line x1="710" y1="730" x2="738" y2="730" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-emerald)"/>
+
+    <!-- Evaluator → (output to user) -->
+    <path d="M 910 695 L 960 695 L 960 30 L 110 30 L 110 20" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#arrow-cyan)"/>
+    <text x="970" y="60" fill="#22d3ee" font-size="8" transform="rotate(90, 970, 60)">response to user</text>
+
+    <!-- Zone 5 → Zone 6: Feedback & memory -->
+    <line x1="110" y1="765" x2="110" y2="823" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow-violet)"/>
+    <text x="120" y="800" fill="#a78bfa" font-size="7">conversation record</text>
+
+    <!-- Evaluator → DSPy Optimizer -->
+    <line x1="810" y1="765" x2="680" y2="823" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrow-amber)"/>
+    <text x="750" y="800" fill="#fbbf24" font-size="7">reward signal</text>
+
+    <!-- Feedback Collector → Preference Learner -->
+    <line x1="870" y1="885" x2="490" y2="885" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrow-cyan)"/>
+    <text x="680" y="892" fill="#94a3b8" font-size="7">feedback signals</text>
+
+    <!-- Preference Learner → Long-Term Memory -->
+    <line x1="490" y1="885" x2="380" y2="885" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#arrow-violet)"/>
+
+    <!-- DSPy Optimizer → LLM Generator (improves prompts) -->
+    <path d="M 680 825 L 680 880 Q 680 900 350 900 Q 120 900 120 765" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow-emerald)"/>
+    <text x="400" y="910" fill="#34d399" font-size="7">optimized prompts · updated signatures</text>
+
+    <!-- Long-Term Memory ↔ User Profile Store (bidirectional) -->
+    <line x1="300" y1="823" x2="865" y2="210" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,4" marker-end="url(#arrow-violet)"/>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         BOUNDARY BOXES
+         ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Main System Boundary -->
+    <rect x="8" y="120" width="1084" height="725" rx="12" fill="rgba(251,191,36,0.04)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+    <text x="20" y="114" fill="#fbbf24" font-size="9" font-weight="600">AGENTIC ENGINE (on-prem / cloud)</text>
+
+    <!-- Memory & Learning Sub-Boundary -->
+    <rect x="12" y="812" width="940" height="80" rx="8" fill="transparent" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="22" y="806" fill="#a78bfa" font-size="8" font-weight="600">MEMORY PLANE — persists across sessions</text>
+
+    <!-- Reasoning Sub-Boundary -->
+    <rect x="12" y="270" width="420" height="130" rx="8" fill="transparent" stroke="#34d399" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="22" y="264" fill="#34d399" font-size="8" font-weight="600">REASONING PLANE — DSPy programs</text>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         LEGEND
+         ═══════════════════════════════════════════════════════════ -->
+    <rect x="920" y="740" width="170" height="155" rx="8" fill="rgba(15,23,42,0.8)" stroke="#1e293b" stroke-width="1"/>
+    <text x="930" y="758" fill="white" font-size="9" font-weight="700">Legend</text>
+
+    <rect x="930" y="768" width="14" height="9" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="0.8"/>
+    <text x="950" y="775" fill="#94a3b8" font-size="7">Frontend / I/O</text>
+
+    <rect x="930" y="782" width="14" height="9" rx="2" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="0.8"/>
+    <text x="950" y="789" fill="#94a3b8" font-size="7">Processing / Reasoning</text>
+
+    <rect x="930" y="796" width="14" height="9" rx="2" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="0.8"/>
+    <text x="950" y="803" fill="#94a3b8" font-size="7">Storage / Memory</text>
+
+    <rect x="930" y="811" width="14" height="9" rx="2" fill="rgba(120,53,15,0.35)" stroke="#fbbf24" stroke-width="0.8"/>
+    <text x="950" y="818" fill="#94a3b8" font-size="7">Orchestration / ML</text>
+
+    <rect x="930" y="826" width="14" height="9" rx="2" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="0.8"/>
+    <text x="950" y="833" fill="#94a3b8" font-size="7">Safety / Classification</text>
+
+    <rect x="930" y="841" width="14" height="9" rx="2" fill="rgba(30,41,59,0.6)" stroke="#94a3b8" stroke-width="0.8"/>
+    <text x="950" y="848" fill="#94a3b8" font-size="7">External / User</text>
+
+    <line x1="930" y1="860" x2="944" y2="860" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="950" y="864" fill="#94a3b8" font-size="7">Data flow</text>
+
+    <line x1="930" y1="874" x2="944" y2="874" stroke="#34d399" stroke-width="1.5"/>
+    <text x="950" y="878" fill="#94a3b8" font-size="7">Control flow</text>
+
+    <line x1="930" y1="888" x2="944" y2="888" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="950" y="892" fill="#94a3b8" font-size="7">Feedback loop</text>
+
+  </svg>
+  </div>
+
+  <!-- Info Cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot rose"></div>
+        <h3>Onboarding Pipeline</h3>
+      </div>
+      <ul>
+        <li>New-user detection triggers profile wizard</li>
+        <li>Guided questions extract wants, goals, constraints</li>
+        <li>Preference vector initialized from first-session signals</li>
+        <li>Returning users resume with full context preload</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot amber"></div>
+        <h3>Intent Understanding</h3>
+      </div>
+      <ul>
+        <li>DSPy classifier: fine-tuned on domain-specific categories</li>
+        <li>NER extracts structured fields from free-form input</li>
+        <li>Context enricher merges session + long-term history</li>
+        <li>Router dispatches: search / create / clarify / chitchat</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot violet"></div>
+        <h3>Resource Search &amp; Retrieval</h3>
+      </div>
+      <ul>
+        <li>Query planner decomposes multi-intent questions</li>
+        <li>Hybrid search: vector similarity + keyword + KG traversal</li>
+        <li>External tools: web, MCP APIs, arXiv, Polymarket, etc.</li>
+        <li>Cross-encoder re-ranker fuses relevance + diversity</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot emerald"></div>
+        <h3>Response Generation</h3>
+      </div>
+      <ul>
+        <li>LLM receives intent + context bundle + user prefs</li>
+        <li>Safety layer: content filter, PII scrubbing, validation</li>
+        <li>Humanizer strips AI-isms, matches user communication style</li>
+        <li>Evaluator scores output via reward model + self-critique</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot cyan"></div>
+        <h3>Memory &amp; Learning</h3>
+      </div>
+      <ul>
+        <li>Short-term: rolling conversation buffer per session</li>
+        <li>Long-term: PostgreSQL + vector store + memory graph</li>
+        <li>Preference learner tracks implicit signals &amp; decay</li>
+        <li>DSPy optimizer updates prompts from reward feedback loop</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot orange"></div>
+        <h3>Continuous Improvement</h3>
+      </div>
+      <ul>
+        <li>User feedback (thumbs, corrections, ratings) collected</li>
+        <li>Evaluator logs to W&B for experiment tracking</li>
+        <li>DSPy compile() optimizes signatures + teleprompters</li>
+        <li>Self-improving: better prompts → better responses → better prefs</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note-box">
+    <strong>Key Design Principles:</strong>
+    The feedback loop is the engine — every interaction refines the user model and the prompting strategy.
+    DSPy serves as the orchestration backbone, treating prompts as programs that can be compiled, tested, and optimized.
+    All user data flows through a <strong>privacy-first</strong> pipeline with PII scrubbing at the safety layer and encrypted storage in PostgreSQL.
+    The modular architecture allows swapping any component (e.g., replacing the vector store or LLM backend) without breaking the outer loop.
+  </div>
+
+  <p class="footer">
+    Agentic User Intelligence Harness &bull; Hermes Agent &bull; DSPy + RAG + Persistent Memory
+  </p>
+
+  </div>
+</body>
+</html>
