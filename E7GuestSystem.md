@@ -1,6 +1,8 @@
 
 ## v1, Draft 
 
+(see ~/e7/E7GuestSystem/E7GuestSystem.md for extended version)
+
 Ok, let's write an alternate / new plan. We want to make a white-label version of the visitor system with the ability to sell subscriptions for different churches or businesses to use. 
 
 Main Entities:
