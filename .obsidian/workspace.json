@@ -27,12 +27,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "E7GuestSystem/E7GuestSystem.md",
+                "file": "E7GuestSystem/E7GuestSystem-FlowChart.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "E7GuestSystem"
+              "title": "E7GuestSystem-FlowChart"
             }
           },
           {
@@ -225,10 +225,10 @@
   },
   "active": "05d148dc5da8aee0",
   "lastOpenFiles": [
-    "E7GuestSystem/Todos.md",
-    "E7GuestSystem/E7GuestSystem.md",
-    "kaizen/research/app-distribution-fee-avoidance.md",
     "E7GuestSystem/E7GuestSystem-Extensions.md",
+    "E7GuestSystem/E7GuestSystem.md",
+    "E7GuestSystem/Todos.md",
+    "kaizen/research/app-distribution-fee-avoidance.md",
     "E7GuestSystem/pricing-addendum.md",
     "kaizen/research",
     "E7GuestSystem.md",
