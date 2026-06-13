@@ -1,0 +1,3 @@
+- Add quotes from anywhere
+- Independent author / source relation
+- Quote relevance vector / tag list
