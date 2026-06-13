@@ -1,0 +1,1 @@
+This folder is human managed E7 data, prompts, responses, notes, etc

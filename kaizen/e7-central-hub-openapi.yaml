@@ -1,0 +1,2995 @@
+openapi: 3.1.0
+info:
+  title: E7 Central Hub API
+  version: 1.0.0-dev
+  x-generated-by: hermes-kanban-worker t_4a5ba946
+  description: "## E7 Central Hub - Unified API Specification\n\nThe E7 Central Hub\
+    \ is a unified management platform with a **dual-view architecture**:\n\n| View\
+    \ | Stack | Description |\n|------|-------|-------------|\n| **LAMP Web Dashboard**\
+    \ | PHP / MySQL / Apache | Browser-based admin and management interface |\n| **Expo\
+    \ Mobile App** | React Native / Convex | iOS & Android companion client |\n\n\
+    This single OpenAPI 3.1 document covers every REST endpoint consumed by both views.\n\
+    The backend is a **hybrid LAMP + Convex** stack: LAMP serves the web dashboard\
+    \ and\nprovides traditional REST endpoints; Convex powers real-time subscriptions\
+    \ for the\nExpo mobile client and acts as the API proxy.\n\n## API Groups\n\n\
+    | Group | Prefix | Operations |\n|-------|--------|-----------|\n| App State |\
+    \ `/state`, `/state/{key}` | 8 |\n| Todos | `/todos` | 7 |\n| Backlog | `/backlog`\
+    \ | 11 |\n| Kanban Boards | `/boards` | 18 |\n| **Total** | | **44** |\n\n## Authentication\n\
+    \nAll endpoints require one of:\n\n- **JWT Bearer token** — mobile (Expo) clients\
+    \ obtain short-lived access tokens via\n  the Convex auth pipeline; refresh tokens\
+    \ are rotated server-side.\n- **API Key** (`X-API-Key`) — LAMP dashboard and internal\
+    \ integrations use long-lived\n  scoped API keys stored hashed in MySQL.\n\n##\
+    \ Conventions\n\n- UUID v4 primary keys for all resources.\n- ISO 8601 UTC timestamps\
+    \ everywhere.\n- Pagination via `offset` + `limit` query parameters (default limit=20).\n\
+    - Soft-delete where noted; deleted records excluded from list responses.\n- PATCH\
+    \ is always partial; use explicit `null` to clear an optional field.\n- `$ref`\
+    \ resolution is intra-document; this spec is fully self-contained.\n"
+  contact:
+    name: E7 LLC
+    url: https://e7-hub.com
+    email: api@e7-hub.com
+  license:
+    name: Proprietary
+    identifier: UNLICENSED
+servers:
+- url: https://api.e7-hub.com/v1
+  description: Production - Convex backend proxy
+- url: https://e7-hub.com/api/v1
+  description: Production - LAMP REST layer
+- url: http://localhost:3000/v1
+  description: Convex local dev server
+- url: http://localhost:8080/api/v1
+  description: LAMP local dev (Apache/PHP)
+security:
+- BearerAuth: []
+- ApiKeyAuth: []
+components:
+  parameters:
+    PaginationParams:
+      name: pagination
+      in: query
+      description: Pagination parameters (inline, not a resource $ref)
+      style: deepObject
+      explode: true
+      schema:
+        type: object
+        properties:
+          offset:
+            type: integer
+            minimum: 0
+            default: 0
+          limit:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+    ExpandParam:
+      name: expand
+      in: query
+      description: Embed related data inline
+      schema:
+        type: string
+        enum:
+        - columns
+        - cards
+    BoardExpandParam:
+      name: expand
+      in: query
+      description: Embed related data inline
+      schema:
+        type: string
+        enum:
+        - columns
+        - cards
+        - backlogItem
+    BacklogExpandParam:
+      name: expand
+      in: query
+      description: Embed related records inline
+      schema:
+        type: string
+        enum:
+        - children
+        - ancestors
+    KeyParam:
+      name: key
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Dot-separated key, e.g. 'settings.theme'
+    TodoIdParam:
+      name: todo_id
+      in: path
+      required: true
+      schema:
+        type: string
+    BacklogIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: BacklogItem UUID
+    BoardIdParam:
+      name: boardId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: KanbanBoard UUID
+    ColumnIdParam:
+      name: columnId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: KanbanColumn UUID
+    CardIdParam:
+      name: cardId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: KanbanCard UUID
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT access token issued by the Convex auth pipeline.
+
+        Client sends: Authorization: Bearer ***
+
+        Refresh tokens are rotated server-side.'
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: 'Long-lived scoped API key for LAMP dashboard integrations.
+
+        Keys are stored hashed in MySQL; the plain value is presented only once at
+        issuance.'
+  schemas:
+    UUID:
+      type: string
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+      description: UUID v4 primary key
+    Timestamp:
+      type: string
+      format: date-time
+      description: ISO 8601 UTC, e.g. 2025-01-01T00:00:00.000Z
+    SortOrder:
+      type: number
+      format: double
+      minimum: 0
+      description: Floating-point sort order; lower values appear first. Allows mid-list
+        insertion without renumbering all siblings.
+    PaginationParamsSchema:
+      type: object
+      properties:
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+    PaginatedResponse:
+      type: object
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+        total:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+      description: Standard paginated list envelope
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+    AppState:
+      type: object
+      required:
+      - appId
+      - key
+      - value
+      - version
+      properties:
+        appId:
+          $ref: '#/components/schemas/UUID'
+        key:
+          type: string
+          description: Dot-separated namespace key, e.g. 'settings.theme'
+        value:
+          type: object
+          description: Arbitrary JSON-serialisable value
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        etag:
+          type: string
+          description: Opaque ETag value for HTTP caching
+    AppStateUpsertRequest:
+      type: object
+      required:
+      - key
+      - value
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+    AppStateBatchRequest:
+      type: object
+      required:
+      - ops
+      properties:
+        ops:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            oneOf:
+            - type: object
+              required:
+              - op
+              - key
+              - value
+              properties:
+                op:
+                  const: upsert
+                key:
+                  type: string
+                value:
+                  type: object
+            - type: object
+              required:
+              - op
+              - key
+              properties:
+                op:
+                  const: delete
+                key:
+                  type: string
+    AppStateBatchResponse:
+      type: object
+      properties:
+        succeeded:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppState'
+        failed:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+    AppStateCollectionFilter:
+      type: object
+      properties:
+        appId:
+          $ref: '#/components/schemas/UUID'
+        key_prefix:
+          type: string
+        updated_since:
+          type: string
+          format: date-time
+    AppStateSyncMeta:
+      type: object
+      properties:
+        last_sync:
+          type: string
+          format: date-time
+        since:
+          type: string
+          format: date-time
+        client_version:
+          type: integer
+    TodoStatus:
+      type: string
+      enum:
+      - pending
+      - in_progress
+      - completed
+      - cancelled
+      description: pending -> in_progress -> completed; cancelled is terminal. Toggle
+        maps in_progress/cancelled <-> completed.
+    TodoPriority:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+      - urgent
+    TodoItem:
+      type: object
+      required:
+      - id
+      - title
+      - status
+      - priority
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        status:
+          $ref: '#/components/schemas/TodoStatus'
+        priority:
+          $ref: '#/components/schemas/TodoPriority'
+        dueDate:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        deletedAt:
+          $ref: '#/components/schemas/Timestamp'
+    TodoCreateRequest:
+      type: object
+      required:
+      - title
+      - priority
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        status:
+          allOf:
+          - $ref: '#/components/schemas/TodoStatus'
+          default: pending
+        priority:
+          $ref: '#/components/schemas/TodoPriority'
+        dueDate:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+    TodoUpdateRequest:
+      type: object
+      properties:
+        title:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        status:
+          $ref: '#/components/schemas/TodoStatus'
+        priority:
+          $ref: '#/components/schemas/TodoPriority'
+        dueDate:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type: array
+          items:
+            type: string
+    TodoFilterParams:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/TodoStatus'
+        priority:
+          $ref: '#/components/schemas/TodoPriority'
+        assignedTo:
+          type: string
+        dueBefore:
+          type: string
+          format: date-time
+        dueAfter:
+          type: string
+          format: date-time
+        tag:
+          type: string
+        search:
+          type: string
+          description: FULLTEXT search on title + description
+        parentId:
+          type: string
+          description: null = top-level only; omit = all
+        offset:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+    TodoBatchCreateOp:
+      type: object
+      required:
+      - op
+      - data
+      properties:
+        op:
+          const: create
+        data:
+          $ref: '#/components/schemas/TodoCreateRequest'
+    TodoBatchUpdateOp:
+      type: object
+      required:
+      - op
+      - id
+      - data
+      properties:
+        op:
+          const: update
+        id:
+          $ref: '#/components/schemas/UUID'
+        data:
+          $ref: '#/components/schemas/TodoUpdateRequest'
+    TodoBatchDeleteOp:
+      type: object
+      required:
+      - op
+      - id
+      properties:
+        op:
+          const: delete
+        id:
+          $ref: '#/components/schemas/UUID'
+        cascade:
+          type: boolean
+          default: false
+          description: If true, orphans children (sets parent_id=null)
+    TodoBatchToggleOp:
+      type: object
+      required:
+      - op
+      - id
+      properties:
+        op:
+          const: toggle
+        id:
+          $ref: '#/components/schemas/UUID'
+    TodoBatchResultSuccess:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        result:
+          type: object
+    TodoBatchResultFailure:
+      type: object
+      required:
+      - id
+      - error
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        error:
+          $ref: '#/components/schemas/Error'
+    BacklogItemType:
+      type: string
+      enum:
+      - feature
+      - bug
+      - task
+      - idea
+    BacklogItemStatus:
+      type: string
+      enum:
+      - triage
+      - open
+      - in_progress
+      - done
+      - wont_fix
+      - duplicate
+    BacklogPriority:
+      type: string
+      enum:
+      - low
+      - medium
+      - high
+      - critical
+    BacklogItem:
+      type: object
+      required:
+      - id
+      - type
+      - status
+      - priority
+      - title
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        type:
+          $ref: '#/components/schemas/BacklogItemType'
+        status:
+          $ref: '#/components/schemas/BacklogItemStatus'
+        priority:
+          $ref: '#/components/schemas/BacklogPriority'
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        reporterId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type: array
+          items:
+            type: string
+        estimatedEffort:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        actualEffort:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        closedAt:
+          $ref: '#/components/schemas/Timestamp'
+    BacklogCreateRequest:
+      type: object
+      required:
+      - type
+      - priority
+      - title
+      properties:
+        type:
+          $ref: '#/components/schemas/BacklogItemType'
+        priority:
+          $ref: '#/components/schemas/BacklogPriority'
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        reporterId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type: array
+          items:
+            type: string
+        estimatedEffort:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+    BacklogUpdateRequest:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/BacklogItemType'
+        status:
+          $ref: '#/components/schemas/BacklogItemStatus'
+        priority:
+          $ref: '#/components/schemas/BacklogPriority'
+        title:
+          type:
+          - string
+          - 'null'
+        description:
+          type:
+          - string
+          - 'null'
+        reporterId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        tags:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+        estimatedEffort:
+          type:
+          - integer
+          - 'null'
+        actualEffort:
+          type:
+          - integer
+          - 'null'
+    BacklogFilterParams:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/BacklogItemType'
+        status:
+          $ref: '#/components/schemas/BacklogItemStatus'
+        priority:
+          $ref: '#/components/schemas/BacklogPriority'
+        assignedTo:
+          type: string
+        tag:
+          type: string
+        search:
+          type: string
+        parentId:
+          type: string
+        hasParent:
+          type: boolean
+        offset:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+    BacklogItemExpanded:
+      type: object
+      required:
+      - id
+      - type
+      - status
+      - priority
+      - title
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        type:
+          $ref: '#/components/schemas/BacklogItemType'
+        status:
+          $ref: '#/components/schemas/BacklogItemStatus'
+        priority:
+          $ref: '#/components/schemas/BacklogPriority'
+        title:
+          type: string
+        description:
+          type:
+          - string
+          - 'null'
+        reporterId:
+          $ref: '#/components/schemas/UUID'
+        assignedToUserId:
+          $ref: '#/components/schemas/UUID'
+        parentId:
+          $ref: '#/components/schemas/UUID'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/BacklogItemExpanded'
+        ancestors:
+          type: array
+          items:
+            $ref: '#/components/schemas/BacklogItemExpanded'
+          description: Ancestor chain root -> direct parent
+        tags:
+          type: array
+          items:
+            type: string
+        estimatedEffort:
+          type:
+          - integer
+          - 'null'
+        actualEffort:
+          type:
+          - integer
+          - 'null'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        closedAt:
+          $ref: '#/components/schemas/Timestamp'
+    BatchBacklogResult:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - bulk_create
+          - bulk_status_change
+          - bulk_assign
+        items:
+          type: array
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+    KanbanBoard:
+      type: object
+      required:
+      - id
+      - title
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        isArchived:
+          type: boolean
+          default: false
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/KanbanColumn'
+          description: Present when expand=columns
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        deletedAt:
+          $ref: '#/components/schemas/Timestamp'
+    KanbanColumn:
+      type: object
+      required:
+      - id
+      - title
+      - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        boardId:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          maxLength: 255
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        colorHex:
+          type:
+          - string
+          - 'null'
+          pattern: ^#[0-9A-Fa-f]{6}$
+        wipLimit:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/KanbanCard'
+          description: Present when expand=cards
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        deletedAt:
+          $ref: '#/components/schemas/Timestamp'
+    KanbanCard:
+      type: object
+      required:
+      - id
+      - title
+      - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        columnId:
+          $ref: '#/components/schemas/UUID'
+        boardId:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        backlogItemId:
+          $ref: '#/components/schemas/UUID'
+        assigneeUserId:
+          $ref: '#/components/schemas/UUID'
+        labels:
+          type: array
+          items:
+            type: string
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+        deletedAt:
+          $ref: '#/components/schemas/Timestamp'
+    KanbanBoardExpanded:
+      type: object
+      required:
+      - id
+      - title
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+        description:
+          type:
+          - string
+          - 'null'
+        isArchived:
+          type: boolean
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/KanbanColumnExpanded'
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    KanbanColumnExpanded:
+      type: object
+      required:
+      - id
+      - title
+      - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        colorHex:
+          type:
+          - string
+          - 'null'
+        wipLimit:
+          type:
+          - integer
+          - 'null'
+        cards:
+          type: array
+          items:
+            $ref: '#/components/schemas/KanbanCardExpanded'
+    KanbanCardExpanded:
+      type: object
+      required:
+      - id
+      - title
+      - sortOrder
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+        description:
+          type:
+          - string
+          - 'null'
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        backlogItemId:
+          $ref: '#/components/schemas/UUID'
+        assigneeUserId:
+          $ref: '#/components/schemas/UUID'
+        labels:
+          type: array
+          items:
+            type: string
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+        updatedAt:
+          $ref: '#/components/schemas/Timestamp'
+    KanbanBoardStats:
+      type: object
+      properties:
+        boardId:
+          $ref: '#/components/schemas/UUID'
+        totalColumns:
+          type: integer
+        totalCards:
+          type: integer
+        cardsByStatus:
+          type: object
+          description: Aggregated counts keyed by column title
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              columnId:
+                $ref: '#/components/schemas/UUID'
+              title:
+                type: string
+              cardCount:
+                type: integer
+              wipLimit:
+                type: integer
+    KanbanBoardCreateRequest:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+    KanbanBoardUpdateRequest:
+      type: object
+      properties:
+        title:
+          type:
+          - string
+          - 'null'
+          maxLength: 255
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        isArchived:
+          type:
+          - boolean
+          - 'null'
+        deletedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    KanbanColumnCreateRequest:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        colorHex:
+          type:
+          - string
+          - 'null'
+          pattern: ^#[0-9A-Fa-f]{6}$
+        wipLimit:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+    KanbanColumnUpdateRequest:
+      type: object
+      properties:
+        title:
+          type:
+          - string
+          - 'null'
+          maxLength: 255
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        colorHex:
+          type:
+          - string
+          - 'null'
+        wipLimit:
+          type:
+          - integer
+          - 'null'
+    KanbanCardCreateRequest:
+      type: object
+      required:
+      - title
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        backlogItemId:
+          $ref: '#/components/schemas/UUID'
+        assigneeUserId:
+          $ref: '#/components/schemas/UUID'
+        labels:
+          type: array
+          items:
+            type: string
+    KanbanCardUpdateRequest:
+      type: object
+      properties:
+        title:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        description:
+          type:
+          - string
+          - 'null'
+          maxLength: 5000
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+        backlogItemId:
+          $ref: '#/components/schemas/UUID'
+        assigneeUserId:
+          $ref: '#/components/schemas/UUID'
+        labels:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+    KanbanColumnReorderRequest:
+      type: object
+      required:
+      - columnIds
+      properties:
+        columnIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UUID'
+    KanbanCardReorderRequest:
+      type: object
+      required:
+      - cardIds
+      properties:
+        cardIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UUID'
+    KanbanCardMoveRequest:
+      type: object
+      required:
+      - targetColumnId
+      properties:
+        targetColumnId:
+          $ref: '#/components/schemas/UUID'
+        sortOrder:
+          $ref: '#/components/schemas/SortOrder'
+paths:
+  /state:
+    get:
+      operationId: listAppState
+      summary: List / delta-sync app state keys
+      description: 'Return current values for all state keys, or only keys changed
+        since a timestamp. LAMP: offset/limit; Convex: paginated queries.'
+      tags:
+      - App State
+      parameters:
+      - name: since
+        in: query
+        schema:
+          type: string
+          format: date-time
+        description: Only keys updated after this timestamp (delta-sync)
+      - name: key_prefix
+        in: query
+        schema:
+          type: string
+        description: Filter by key namespace prefix, e.g. 'settings.theme'
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '200':
+          description: State collection
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/AppState'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: batchFetchAppState
+      summary: Batch fetch — return current values for listed keys
+      description: 'Optimal for mobile sync-reconciliation: batch-fetch a list of
+        keys and compare client vs server in one round-trip.'
+      tags:
+      - App State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStateBatchRequest'
+      responses:
+        '200':
+          description: Current values for requested keys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppStateBatchResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: batchUpsertAppState
+      summary: Batch upsert — atomically write multiple keys
+      description: 'Idempotent batch upsert. LAMP: atomic transaction. Convex: multi-mutation.
+        Safe for mobile retry — duplicate PUTs are harmless.'
+      tags:
+      - App State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStateBatchRequest'
+      responses:
+        '200':
+          description: Upserted state entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppStateBatchResponse'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: batchDeleteAppState
+      summary: Batch delete — atomically remove multiple keys
+      description: All-or-nothing batch delete. Idempotent — absent keys are ignored.
+      tags:
+      - App State
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStateBatchRequest'
+      responses:
+        '200':
+          description: Deleted count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /state/{key}:
+    get:
+      operationId: getAppStateByKey
+      summary: Get a single state entry by key
+      description: Supports If-None-Match / If-Modified-Since for HTTP caching. LAMP
+        ETag = md5(value); Convex built-in optimistic concurrency.
+      tags:
+      - App State
+      parameters:
+      - $ref: '#/components/parameters/KeyParam'
+      responses:
+        '200':
+          description: Current value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppState'
+        '304':
+          description: Not Modified — client ETag matches
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      operationId: upsertAppStateByKey
+      summary: Idempotent upsert by key
+      description: Idempotent upsert. Safe for mobile retry.
+      tags:
+      - App State
+      parameters:
+      - $ref: '#/components/parameters/KeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStateUpsertRequest'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Upserted entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppState'
+    patch:
+      operationId: patchAppStateByKey
+      summary: Partial update (shallow merge) by key
+      description: PATCH merges value fields. Returns 404 if key missing — use PUT
+        to create.
+      tags:
+      - App State
+      parameters:
+      - $ref: '#/components/parameters/KeyParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppStateUpsertRequest'
+      responses:
+        '200':
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppState'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteAppStateByKey
+      summary: Delete by key (idempotent)
+      description: Idempotent — returns 200 even if the key does not exist.
+      tags:
+      - App State
+      parameters:
+      - $ref: '#/components/parameters/KeyParam'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Deleted (or absent)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+  /todos:
+    get:
+      operationId: listTodos
+      summary: List todos with filtering, pagination, and sorting
+      description: 'Paginated list. LAMP: SQL builder with prepared statements; MySQL
+        FULLTEXT on title+description for ?search=. Filters are AND-combined.'
+      tags:
+      - Todos
+      parameters:
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/TodoStatus'
+      - name: priority
+        in: query
+        schema:
+          $ref: '#/components/schemas/TodoPriority'
+      - name: assignedTo
+        in: query
+        schema:
+          type: string
+      - name: dueBefore
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: dueAfter
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: tag
+        in: query
+        schema:
+          type: string
+      - name: search
+        in: query
+        schema:
+          type: string
+        description: FULLTEXT search on title + description
+      - name: parentId
+        in: query
+        schema:
+          type: string
+        description: null = top-level only; omit = all levels
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Paginated todo list
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/TodoItem'
+    post:
+      operationId: createTodo
+      summary: Create a new todo item
+      tags:
+      - Todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoCreateRequest'
+      responses:
+        '201':
+          description: Created todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /todos/{todo_id}:
+    get:
+      operationId: getTodo
+      summary: Get a single todo by ID
+      tags:
+      - Todos
+      parameters:
+      - $ref: '#/components/parameters/TodoIdParam'
+      responses:
+        '200':
+          description: Todo item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: updateTodo
+      summary: Partial update of a todo
+      description: 'PATCH is partial. Pass null to clear optional fields. e.g. PATCH
+        body: {"dueDate": null}'
+      tags:
+      - Todos
+      parameters:
+      - $ref: '#/components/parameters/TodoIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoUpdateRequest'
+      responses:
+        '200':
+          description: Updated todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteTodo
+      summary: Soft-delete a todo
+      description: Soft-delete sets deletedAt. Children become orphans (parent_id=null)
+        unless ?cascade=true. Deleted records excluded from list responses.
+      tags:
+      - Todos
+      parameters:
+      - $ref: '#/components/parameters/TodoIdParam'
+      - name: cascade
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: If true, cascades deletion to child todos
+      responses:
+        '200':
+          description: Todo deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflict: cascade required but not requested'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /todos/{todo_id}/toggle:
+    post:
+      operationId: toggleTodoCompletion
+      summary: Toggle todo completion status
+      description: Switches between completed and pending. in_progress / cancelled
+        -> completed; completed -> pending. Returns the updated todo.
+      tags:
+      - Todos
+      parameters:
+      - $ref: '#/components/parameters/TodoIdParam'
+      responses:
+        '200':
+          description: Updated todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /todos/batch:
+    post:
+      operationId: batchTodoOperations
+      summary: Atomic batch CRUD operations on todos
+      description: 'All-or-nothing batch. Sub-op types: create, update, delete, toggle.
+        LAMP: multi-statement transaction. Convex: batched mutations.'
+      tags:
+      - Todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - operations
+              properties:
+                operations:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    oneOf:
+                    - type: object
+                      required:
+                      - op
+                      properties:
+                        op:
+                          const: create
+                        data:
+                          $ref: '#/components/schemas/TodoCreateRequest'
+                    - type: object
+                      required:
+                      - op
+                      - id
+                      properties:
+                        op:
+                          const: update
+                        id:
+                          $ref: '#/components/schemas/UUID'
+                        data:
+                          $ref: '#/components/schemas/TodoUpdateRequest'
+                    - type: object
+                      required:
+                      - op
+                      - id
+                      properties:
+                        op:
+                          const: delete
+                        id:
+                          $ref: '#/components/schemas/UUID'
+                    - type: object
+                      required:
+                      - op
+                      - id
+                      properties:
+                        op:
+                          const: toggle
+                        id:
+                          $ref: '#/components/schemas/UUID'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Per-operation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  succeeded:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TodoBatchResultSuccess'
+                  failed:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TodoBatchResultFailure'
+  /backlog:
+    get:
+      operationId: listBacklogItems
+      summary: List backlog items with rich filtering and pagination
+      description: 'Filters are AND-combined. LAMP: SQL with prepared statements.
+        Convex: paginated query with compound index on (type, status, priority).'
+      tags:
+      - Backlog
+      parameters:
+      - name: type
+        in: query
+        schema:
+          $ref: '#/components/schemas/BacklogItemType'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/BacklogItemStatus'
+      - name: priority
+        in: query
+        schema:
+          $ref: '#/components/schemas/BacklogPriority'
+      - name: assignedTo
+        in: query
+        schema:
+          type: string
+      - name: tag
+        in: query
+        schema:
+          type: string
+      - name: search
+        in: query
+        schema:
+          type: string
+      - name: parentId
+        in: query
+        schema:
+          type: string
+      - name: hasParent
+        in: query
+        schema:
+          type: boolean
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Paginated backlog list
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/BacklogItem'
+    post:
+      operationId: createBacklogItem
+      summary: Create a new backlog item
+      tags:
+      - Backlog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacklogCreateRequest'
+      responses:
+        '201':
+          description: Created backlog item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItem'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /backlog/triage:
+    post:
+      operationId: submitTriageIdea
+      summary: Submit a triage idea
+      description: Lightweight triage submission. Server forces type=idea and status=triage
+        regardless of client input. The `source` field records the origin channel
+        for analytics, e.g. 'mobile-suggestion-box'.
+      tags:
+      - Backlog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - title
+              properties:
+                title:
+                  type: string
+                  maxLength: 500
+                description:
+                  type:
+                  - string
+                  - 'null'
+                  maxLength: 5000
+                source:
+                  type: string
+                  description: Origin channel, e.g. mobile-idea-box
+      responses:
+        '201':
+          description: Created triage item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItem'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /backlog/{id}:
+    get:
+      operationId: getBacklogItem
+      summary: Get a backlog item by ID
+      description: Supports ?expand=children for embedding immediate children and
+        ?expand=ancestors for the full ancestor chain.
+      tags:
+      - Backlog
+      parameters:
+      - $ref: '#/components/parameters/BacklogIdParam'
+      - $ref: '#/components/parameters/BacklogExpandParam'
+      responses:
+        '200':
+          description: Backlog item (expanded if requested)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItemExpanded'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: updateBacklogItem
+      summary: Partial update of a backlog item
+      description: Use explicit null to clear fields. 409 returned for version conflict
+        or cycle-detection failures.
+      tags:
+      - Backlog
+      parameters:
+      - $ref: '#/components/parameters/BacklogIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacklogUpdateRequest'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItem'
+        '409':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteBacklogItem
+      summary: Delete a backlog item
+      description: 'Rejects 409 HAS_CHILDREN unless ?cascade=true. Convex: Deduplicated
+        subtree delete. LAMP: CTE recursive delete.'
+      tags:
+      - Backlog
+      parameters:
+      - $ref: '#/components/parameters/BacklogIdParam'
+      - name: cascade
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: If true, recursively delete children before deleting parent
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Has children — pass ?cascade=true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /backlog/{id}/children:
+    get:
+      operationId: listBacklogChildren
+      summary: Get direct children of a backlog item
+      description: 'Results sorted by sort_order. Convex index: filter parentId, order
+        sort_order asc.'
+      tags:
+      - Backlog
+      parameters:
+      - $ref: '#/components/parameters/BacklogIdParam'
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Child items
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/BacklogItem'
+    post:
+      operationId: linkChildToParent
+      summary: Link a child item to a parent backlog item
+      description: 'Validates: no self-reference, no double-parenting, no cycle (full
+        ancestor chain check). 409 on any validation failure.'
+      tags:
+      - Backlog
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Parent item ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - childId
+              properties:
+                childId:
+                  type: string
+                  format: uuid
+                  description: UUID of the child item to link
+      responses:
+        '204':
+          description: Child linked — no body
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: unlinkChild
+      summary: Unlink a child item from its parent
+      description: Sets child.parentId = null. Does NOT delete the child.
+      tags:
+      - Backlog
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Parent item ID
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Child item ID to unlink
+      responses:
+        '200':
+          description: Child unlinked
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /backlog/{id}/ancestors:
+    get:
+      operationId: listBacklogAncestors
+      summary: Get the full ancestor chain of a backlog item
+      description: 'Returns every ancestor from root to direct parent, ordered root
+        -> parent. Convex: indexed ancestor traversal.'
+      tags:
+      - Backlog
+      parameters:
+      - $ref: '#/components/parameters/BacklogIdParam'
+      responses:
+        '200':
+          description: Ancestor chain
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BacklogItemExpanded'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /backlog/batch:
+    post:
+      operationId: batchBacklogOperations
+      summary: Batch backlog operations (bulk create / status / assign)
+      description: 'All-or-nothing batch. Convex: batched mutations. LAMP: single
+        multi-statement transaction with prepared statements.'
+      tags:
+      - Backlog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - op
+              - items
+              properties:
+                op:
+                  type: string
+                  enum:
+                  - bulk_create
+                  - bulk_status_change
+                  - bulk_assign
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    oneOf:
+                    - type: object
+                      required:
+                      - type
+                      - priority
+                      - title
+                      properties:
+                        type:
+                          $ref: '#/components/schemas/BacklogItemType'
+                        priority:
+                          $ref: '#/components/schemas/BacklogPriority'
+                        title:
+                          type: string
+                    - type: object
+                      required:
+                      - id
+                      - status
+                      properties:
+                        id:
+                          type: string
+                        status:
+                          $ref: '#/components/schemas/BacklogItemStatus'
+                    - type: object
+                      required:
+                      - id
+                      - assignedToUserId
+                      properties:
+                        id:
+                          type: string
+                        assignedToUserId:
+                          type: string
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Batch results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchBacklogResult'
+  /boards:
+    post:
+      operationId: createBoard
+      summary: Create a new kanban board
+      tags:
+      - Kanban
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanBoardCreateRequest'
+      responses:
+        '201':
+          description: Created board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanBoard'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: listBoards
+      summary: List all kanban boards
+      description: ?expand=columns embeds column list; ?expand=cards embeds columns
+        + cards. Without expand only top-level board metadata is returned.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/ExpandParam'
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Paginated board list
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/KanbanBoardExpanded'
+  /boards/{boardId}:
+    get:
+      operationId: getBoard
+      summary: Get a single kanban board by ID
+      description: ?expand=columns embeds columns; ?expand=cards embeds columns +
+        cards inline.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/ExpandParam'
+      responses:
+        '200':
+          description: Board (optionally expanded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanBoardExpanded'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: updateBoard
+      summary: Patch a kanban board's metadata
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanBoardUpdateRequest'
+      responses:
+        '200':
+          description: Updated board
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanBoard'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteBoard
+      summary: Delete a kanban board (soft-delete with cascading)
+      description: Soft-deletes the board and cascades to all columns and cards. Default
+        columns (Todo / In Progress / Done) are not auto-restored from this endpoint;
+        that is handled by board creation.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      responses:
+        '200':
+          description: Board deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanBoard'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /boards/{boardId}/columns:
+    post:
+      operationId: createColumn
+      summary: Create a new column on a board
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanColumnCreateRequest'
+      responses:
+        '201':
+          description: Created column
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanColumn'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      operationId: listColumns
+      summary: List all columns on a board
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Column list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KanbanColumn'
+  /boards/{boardId}/columns/{columnId}:
+    patch:
+      operationId: updateColumn
+      summary: Patch column metadata (title, sortOrder, WIP limit)
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/ColumnIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanColumnUpdateRequest'
+      responses:
+        '200':
+          description: Updated column
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanColumn'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteColumn
+      summary: Delete a column and reassign its cards
+      description: 'Delete a column: all cards are reassigned to the first remaining
+        column with sortOrder set to 0.'
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/ColumnIdParam'
+      responses:
+        '200':
+          description: Column deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanColumn'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /boards/{boardId}/columns/reorder:
+    put:
+      operationId: reorderColumns
+      summary: Reorder columns on a board (atomic)
+      description: 'Atomic bulk reorder: pass new column order as an array of UUIDs.
+        Convex & LAMP both use set sortOrder = CASE WHEN id=? THEN ? for an O(1) reorder.'
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanColumnReorderRequest'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Reordered columns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KanbanColumn'
+  /boards/{boardId}/cards:
+    post:
+      operationId: createCard
+      summary: Create a new card in a column on a board
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanCardCreateRequest'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '201':
+          description: Created card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanCard'
+    get:
+      operationId: listCards
+      summary: List cards on a board
+      description: ?expand=backlogItem embeds the linked BacklogItem inline for traceability
+        between the backlog and kanban workflows.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - name: expand
+        in: query
+        schema:
+          type: string
+          enum:
+          - backlogItem
+      - $ref: '#/components/parameters/PaginationParams'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Paginated card list
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/PaginatedResponse'
+                - type: object
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/KanbanCard'
+  /boards/{boardId}/cards/{cardId}:
+    get:
+      operationId: getCard
+      summary: Get a single card by ID (board-scoped)
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/CardIdParam'
+      - name: expand
+        in: query
+        schema:
+          type: string
+          enum:
+          - backlogItem
+      responses:
+        '200':
+          description: Card detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanCardExpanded'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: updateCard
+      summary: Patch card metadata
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/CardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanCardUpdateRequest'
+      responses:
+        '200':
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanCard'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteCard
+      summary: Soft-delete a card
+      description: Soft-delete only — the card record is retained with deletedAt set.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/CardIdParam'
+      responses:
+        '200':
+          description: Card deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanCard'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /boards/{boardId}/cards/{cardId}/move:
+    post:
+      operationId: moveCard
+      summary: Move a card to a different column
+      description: 'Dedicated endpoint for drag-and-drop re-parenting between columns.
+        LAMP: single UPDATE on column_id + optional sort_order.'
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      - $ref: '#/components/parameters/CardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanCardMoveRequest'
+      responses:
+        '200':
+          description: Card moved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanCard'
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /boards/{boardId}/cards/reorder:
+    put:
+      operationId: reorderCards
+      summary: Reorder cards within a column
+      description: 'Scoped per-column: the caller implicitly targets the source column
+        via the board-scoped card collection URI, then passes the new card order.'
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KanbanCardReorderRequest'
+      responses:
+        '400':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Reordered cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KanbanCard'
+  /boards/{boardId}/stats:
+    get:
+      operationId: getBoardStats
+      summary: Get dashboard summary statistics for a board
+      description: Per-column card counts and overall totals for the board's dashboard
+        summary bar. Card counts per status / column.
+      tags:
+      - Kanban
+      parameters:
+      - $ref: '#/components/parameters/BoardIdParam'
+      responses:
+        '200':
+          description: Board statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KanbanBoardStats'
+        '401':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Error response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+tags:
+- name: App State
+  description: Key-value state management with delta-sync, ETags, and batch operations.
+    Supports both LAMP (REST) and Convex (real-time) backends.
+- name: Todos
+  description: Task management with filtering, pagination, soft-delete, toggle completion,
+    and atomic batch operations.
+- name: Backlog
+  description: Feature/bug/task tracking with hierarchical parent-child linking, cycle
+    detection, triage submission, and batch operations.
+- name: Kanban
+  description: Kanban board workflow with boards, columns, cards, drag-and-drop move,
+    reorder, WIP limits, and dashboard statistics.

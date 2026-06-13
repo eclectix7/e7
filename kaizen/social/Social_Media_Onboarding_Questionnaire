@@ -1,0 +1,43 @@
+<mxfile host="Electron">
+  <diagram name="Page-1" id="pUk1FlYhuKXXFCwutwHc">
+    <mxGraphModel dx="819" dy="488" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-1" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="User" vertex="1">
+          <mxGeometry height="60" width="30" x="60" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Preferences" vertex="1">
+          <mxGeometry height="60" width="120" x="140" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-3" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" value="SQLite" vertex="1">
+          <mxGeometry height="80" width="60" x="300" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Goals" vertex="1">
+          <mxGeometry height="60" width="120" x="320" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Onboarding" vertex="1">
+          <mxGeometry height="30" width="60" x="30" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Likes" vertex="1">
+          <mxGeometry height="60" width="120" x="470" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Tone" vertex="1">
+          <mxGeometry height="60" width="120" x="540" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Value Sought" vertex="1">
+          <mxGeometry height="60" width="120" x="100" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Style" vertex="1">
+          <mxGeometry height="60" width="120" x="560" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Other Platforms, Why, &amp;amp; Ratings" vertex="1">
+          <mxGeometry height="60" width="120" x="80" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="ObzWyOOi4N8UpH9__noQ-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Influencers" vertex="1">
+          <mxGeometry height="60" width="120" x="510" y="330" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

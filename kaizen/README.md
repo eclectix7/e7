@@ -1,0 +1,1 @@
+This folder is managed by the Hermes agent for note-taking as needed
