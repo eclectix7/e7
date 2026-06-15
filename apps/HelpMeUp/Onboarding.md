@@ -91,3 +91,13 @@ Think / scroll and grow rich
 	2. How often do you reflect on them?
 	3. Do they prevent you from making progress?
 		1. Are you being honest with yourself?
+75. How do you talk to yourself?
+76. Do you speak curses over your health, welfare, or fortune?
+77. What is you attitude with life?
+	1. Do your words reflect it?
+78. What do you think would help you most?
+79. How much time do you spend on social media?
+80. How much time do you waste on social media? (could be reclaimed for improving your life)
+81. How much time do you spend watching other people do things in life (even if it is "research")?
+82. What benefit do you bring to the world? How do you help others?
+	1. What's stopping you? Or what could help you do better / more?
