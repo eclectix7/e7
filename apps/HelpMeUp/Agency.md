@@ -9,4 +9,10 @@
 - Story writer
 	- Writes a success story for the user's vision
 	- Voice / audio generation
-	- 
+- Resource Util
+	- Catalog things that could be of use / relevant for X
+- Yt resource util
+	- Pull contextual information or video from related videos
+- Bibliographer
+	- Quote links / referencer
+	- Amazon aff links to resources
