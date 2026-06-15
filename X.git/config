@@ -1,8 +1,0 @@
-[core]
-	repositoryformatversion = 0
-	filemode = true
-	bare = false
-	logallrefupdates = true
-[remote "origin"]
-	url = git@gitlab.com:e7-group/e7.git
-	fetch = +refs/heads/*:refs/remotes/origin/*

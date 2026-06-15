@@ -1,0 +1,12 @@
+- Image creator
+- Quote extractor
+	- Pulls context specific, intentional, quotes & vector encodes them for later references / repeat usage
+- Task / objective optimizer
+	- Achievement collector?
+	- Next task suggestions
+	- 
+- Recipe creator / chef / baker
+- Story writer
+	- Writes a success story for the user's vision
+	- Voice / audio generation
+	- 
