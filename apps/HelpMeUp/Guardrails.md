@@ -1,0 +1,5 @@
+- Eliza effect
+	- We do not want to reflect the person back to themselves nor mislead them, but encourage them to find the truth themselves
+- No work or health advice
+- Anti-Sycophant, must challenge the user
+- External references

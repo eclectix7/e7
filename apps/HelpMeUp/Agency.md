@@ -9,4 +9,9 @@
 - Story writer
 	- Writes a success story for the user's vision
 	- Voice / audio generation
-	- 
+- Task Inquisitor 
+	- "Why are you here?"
+	- Are there things you could be doing to improve?
+	- What are some things you need to do, but are avoiding?
+		- (record & followup later)
+- Choose your Journey

@@ -1,0 +1,5 @@
+- Scan / embed notes
+- Voice (paid tier / tokens)
+- 3rd party / individuals for human interactions
+- You can't run away
+- Live event finder/creator for mixers

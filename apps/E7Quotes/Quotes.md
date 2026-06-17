@@ -1,0 +1,3 @@
+- You don't get what you want, you get who you are.
+- Whatever the mind of man can conceive, he can achieve.
+- Fear is a track start & you can never outrun it - you have to turn and face it.
